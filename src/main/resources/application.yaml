@@ -1,0 +1,18 @@
+spring:
+  data:
+    elasticsearch:
+      cluster-name: spectradocument
+      cluster-nodes: wp-p2m-30.ebi.ac.uk:9200, wp-p2m-31.ebi.ac.uk:9200, wp-p2m-32.ebi.ac.uk:9200
+  main:
+    web-application-type=NONE:
+rest:
+  timeout:
+    millis:
+      connection: 60000
+      read: 60000
+
+batchCommit: 1000
+productionPath: /nfs/pride/prod/archive/
+backupPath: /nfs/pride/prod/peptidome/assays/
+qFilterProteinFDR: 0.1
+prideWSPublic: https://www.ebi.ac.uk/pride/ws/archive/v2/
