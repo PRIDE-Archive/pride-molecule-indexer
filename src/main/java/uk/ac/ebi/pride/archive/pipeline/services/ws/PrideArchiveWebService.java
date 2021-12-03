@@ -28,6 +28,12 @@ public class PrideArchiveWebService {
     @Value("${prideWSPublic}")
     String prideWSPublic;
 
+    /**
+     * Find the {@link PrideProject} for a specific project accession
+     * @param projectAccession Project Accession
+     * @return Optional {@link PrideProject}
+     * @throws IOException
+     */
     public Optional<PrideProject> findByAccession(String projectAccession) throws IOException {
 
         Optional<PrideProject> project;
@@ -55,7 +61,7 @@ public class PrideArchiveWebService {
             URI uri = new URI(baseUrl);
             ResponseEntity<PrideFile[]> result = restTemplate.getForEntity(uri, PrideFile[].class);
             if (result.getStatusCode() == HttpStatus.OK && result.hasBody())
-                files = Arrays.asList(result.getBody());
+                files = Arrays.asList(Objects.requireNonNull(result.getBody()));
             else
                 throw new IOException("Connection to pride ws unuseful for project: " + projectAccession);
         } catch (URISyntaxException e) {
@@ -71,8 +77,8 @@ public class PrideArchiveWebService {
      *  - accession of the file
      *  - ftp location
      *
-     * @param projectAccession
-     * @param fileOutput
+     * @param projectAccession project accession
+     * @param fileOutput File output
      */
     public void writeResultForProjectAccession(String projectAccession, String fileOutput){
         try {

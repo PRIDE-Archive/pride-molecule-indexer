@@ -16,22 +16,12 @@ import de.mpc.pia.modeller.report.filter.impl.PSMScoreFilter;
 import de.mpc.pia.modeller.score.ScoreModelEnum;
 import de.mpc.pia.tools.pride.PRIDETools;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.batch.core.Job;
-import org.springframework.batch.core.Step;
-import org.springframework.batch.core.StepContribution;
-import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
-import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
-import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
-import org.springframework.batch.core.scope.context.ChunkContext;
-import org.springframework.batch.core.step.tasklet.Tasklet;
-import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.stereotype.Service;
 import uk.ac.ebi.jmzidml.model.mzidml.AbstractParam;
 import uk.ac.ebi.jmzidml.model.mzidml.AnalysisSoftware;
 import uk.ac.ebi.jmzidml.model.mzidml.SpectraData;
@@ -53,8 +43,6 @@ import uk.ac.ebi.pride.archive.pipeline.utility.SubmissionPipelineConstants;
 import uk.ac.ebi.pride.archive.spectra.model.ArchiveSpectrum;
 import uk.ac.ebi.pride.mongodb.archive.model.assay.MongoAssayFile;
 import uk.ac.ebi.pride.mongodb.archive.model.assay.MongoPrideAssay;
-import uk.ac.ebi.pride.mongodb.configs.ArchiveMongoConfig;
-import uk.ac.ebi.pride.mongodb.configs.MoleculesMongoConfig;
 import uk.ac.ebi.pride.mongodb.molecules.model.peptide.PrideMongoPeptideEvidence;
 import uk.ac.ebi.pride.mongodb.molecules.model.protein.PrideMongoProteinEvidence;
 import uk.ac.ebi.pride.mongodb.molecules.model.psm.PrideMongoPsmSummaryEvidence;
@@ -83,8 +71,7 @@ import java.util.stream.Collectors;
 
 @Configuration
 @Slf4j
-@EnableBatchProcessing
-@Import({ArchiveMongoConfig.class, MoleculesMongoConfig.class})
+@Service
 public class PrideAnalysisAssayService {
 
     private static final Long MERGE_FILE_ID = 1L;
@@ -97,19 +84,6 @@ public class PrideAnalysisAssayService {
     private PIAModelerService piaModellerService;
 
     Map<String, Long> taskTimeMap = new HashMap<>();
-
-    @SuppressWarnings("SpringJavaAutowiredFieldsWarningInspection")
-    @Autowired
-    protected JobBuilderFactory jobBuilderFactory;
-
-    @SuppressWarnings("SpringJavaAutowiredFieldsWarningInspection")
-    @Autowired
-    protected StepBuilderFactory stepBuilderFactory;
-
-    @Bean
-    public static PropertySourcesPlaceholderConfigurer propertyConfigInDev() {
-        return new PropertySourcesPlaceholderConfigurer();
-    }
 
     @Value("${productionPath}")
     String productionPath;
@@ -149,38 +123,33 @@ public class PrideAnalysisAssayService {
         return piaModellerService;
     }
 
-    @Bean
-    public Tasklet initJobPRIDEReanalysisAnalyzeAssayJob() {
-        return (stepContribution, chunkContext) ->
-        {
+    public void initJobPRIDEReanalysisAnalyzeAssayJob() throws IOException {
 
-            Optional<PrideProject> project = prideFileMongoRepository.findByAccession(projectAccession);
-            DateFormat dateFormat = new SimpleDateFormat("yyyy-MM");
-            String allDate = dateFormat.format(project.get().getPublicationDate());
-            String[] allDateString = allDate.split("-");
-            String year = null, month = null;
+        Optional<PrideProject> project = prideFileMongoRepository.findByAccession(projectAccession);
+        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM");
+        String allDate = dateFormat.format(project.get().getPublicationDate());
+        String[] allDateString = allDate.split("-");
+        String year = null, month = null;
 
-            if (allDateString.length == 2) {
-                year = allDateString[0];
-                month = allDateString[1];
-            }
-            if (year != null && month != null) {
-                projectPath = String.join("/",productionPath, year, month, projectAccession);
-            }
-            mongoPrideFiles = prideFileMongoRepository.findFilesByProjectAccession(projectAccession);
-            this.mongoResultFiles = mongoPrideFiles.parallelStream().filter(mongoFile -> mongoFile.getFileCategory().getValue().equals("RESULT")).collect(Collectors.toList());
-            if(resultFileName != null){
-                this.mongoResultFiles = mongoResultFiles.stream().filter( x-> Objects.equals(x.getFileName(), resultFileName)).collect(Collectors.toList());
-            }
-            this.assayObjectMap = new HashMap<>();
-            for (PrideFile mongoResultFile : mongoResultFiles) {
-                log.info("Analyzing assay file  -- " + mongoResultFile.getFileName());
-                Map<String, Object> assayObjects = new HashMap<>();
-                assayObjectMap.put(mongoResultFile.getAccession(), assayObjects);
-            }
-            System.out.println(String.format("==================>>>>>>> PRIDEReanalysisAnalyzeAssayJob - Run the job for Project %s", projectAccession));
-            return RepeatStatus.FINISHED;
-        };
+        if (allDateString.length == 2) {
+            year = allDateString[0];
+            month = allDateString[1];
+        }
+        if (year != null && month != null) {
+            projectPath = String.join("/",productionPath, year, month, projectAccession);
+        }
+        mongoPrideFiles = prideFileMongoRepository.findFilesByProjectAccession(projectAccession);
+        this.mongoResultFiles = mongoPrideFiles.parallelStream().filter(mongoFile -> mongoFile.getFileCategory().getValue().equals("RESULT")).collect(Collectors.toList());
+        if(resultFileName != null){
+            this.mongoResultFiles = mongoResultFiles.stream().filter( x-> Objects.equals(x.getFileName(), resultFileName)).collect(Collectors.toList());
+        }
+        this.assayObjectMap = new HashMap<>();
+        for (PrideFile mongoResultFile : mongoResultFiles) {
+            log.info("Analyzing assay file  -- " + mongoResultFile.getFileName());
+            Map<String, Object> assayObjects = new HashMap<>();
+            assayObjectMap.put(mongoResultFile.getAccession(), assayObjects);
+        }
+        System.out.println(String.format("==================>>>>>>> PRIDEReanalysisAnalyzeAssayJob - Run the job for Project %s", projectAccession));
     }
 
     private void createBackupFiles() throws IOException {
@@ -223,224 +192,210 @@ public class PrideAnalysisAssayService {
         }
     }
 
-    /**
-     * Get the analyze assay information.
-     * @return
-     */
-    @Bean
-    public Step analyzeAssayInformationStep() {
-        return stepBuilderFactory
-                .get(SubmissionPipelineConstants.PrideArchiveStepNames.PRIDE_ARCHIVE_MONGODB_ASSAY_INFERENCE.name())
-                .tasklet((stepContribution, chunkContext) -> {
+    public void analyzeAssayInformationStep() throws IOException {
 
-                    long initAnalysisAssay = System.currentTimeMillis();
+        long initAnalysisAssay = System.currentTimeMillis();
 
-                    log.info("Analyzing project -- " + projectAccession);
-                    log.info("creating backup files");
-                    createBackupFiles();
-                    log.info("creating backup files: finished");
+        log.info("Analyzing project -- " + projectAccession);
+        log.info("creating backup files");
+        createBackupFiles();
+        log.info("creating backup files: finished");
 
-                    Optional<PrideProject> optionalProject = prideFileMongoRepository.findByAccession(projectAccession);
+        Optional<PrideProject> optionalProject = prideFileMongoRepository.findByAccession(projectAccession);
 
-                    if (mongoResultFiles.size() < 0 || !optionalProject.isPresent()) {
-                        String errorMessage = "No Project or Assay found!";
-                        log.error(errorMessage);
-                        throw new IOException(errorMessage);
-                    }
+        if (mongoResultFiles.size() < 0 || !optionalProject.isPresent()) {
+            String errorMessage = "No Project or Assay found!";
+            log.error(errorMessage);
+            throw new IOException(errorMessage);
+        }
 
-                    project = optionalProject.get();
+        project = optionalProject.get();
 
-                    DateFormat dateFormat = new SimpleDateFormat("yyyy-MM");
-                    String allDate = dateFormat.format(project.getPublicationDate());
-                    String[] allDateString = allDate.split("-");
-                    String year = null, month = null;
+        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM");
+        String allDate = dateFormat.format(project.getPublicationDate());
+        String[] allDateString = allDate.split("-");
+        String year = null, month = null;
 
-                    if (allDateString.length == 2) {
-                        year = allDateString[0];
-                        month = allDateString[1];
-                    }
+        if (allDateString.length == 2) {
+            year = allDateString[0];
+            month = allDateString[1];
+        }
 
-                    if (year != null && month != null) {
-                        //change it local path to test
-                        String buildPath = SubmissionPipelineConstants.buildInternalPath(productionPath,projectAccession, year, month);
-                        for (PrideFile mongoResultFile : mongoResultFiles) {
+        if (year != null && month != null) {
+            //change it local path to test
+            String buildPath = SubmissionPipelineConstants.buildInternalPath(productionPath,projectAccession, year, month);
+            for (PrideFile mongoResultFile : mongoResultFiles) {
 
-                            log.info("Analyzing assay file  -- " + mongoResultFile.getFileName());
+                log.info("Analyzing assay file  -- " + mongoResultFile.getFileName());
 
-                            long nrDecoys = 0;
+                long nrDecoys = 0;
 
-                            Map<String, Object> assayObjects = assayObjectMap.get(mongoResultFile.getAccession());
-                            SubmissionPipelineConstants.FileType fileType = SubmissionPipelineConstants.FileType.getFileTypeFromPRIDEFileName(mongoResultFile.getFileName());
+                Map<String, Object> assayObjects = assayObjectMap.get(mongoResultFile.getAccession());
+                SubmissionPipelineConstants.FileType fileType = SubmissionPipelineConstants.FileType.getFileTypeFromPRIDEFileName(mongoResultFile.getFileName());
 
-                            /**
-                             * The first threshold for modeller is not threshold at PSM and Protein level.
-                             */
-                            PIAModeller modeller = piaModellerService.performProteinInference(mongoResultFile.getAccession(),
-                                    SubmissionPipelineConstants.returnUnCompressPath(buildPath + mongoResultFile.getFileName()),
-                                    fileType, 1.0, 1.0);
+                /**
+                 * The first threshold for modeller is not threshold at PSM and Protein level.
+                 */
+                PIAModeller modeller = piaModellerService.performProteinInference(mongoResultFile.getAccession(),
+                        SubmissionPipelineConstants.returnUnCompressPath(buildPath + mongoResultFile.getFileName()),
+                        fileType, 1.0, 1.0);
 
-                            nrDecoys = modeller.getPSMModeller().getReportPSMSets().entrySet().stream()
-                                    .filter(entry -> entry.getValue().getIsDecoy())
-                                    .count();
+                nrDecoys = modeller.getPSMModeller().getReportPSMSets().entrySet().stream()
+                        .filter(entry -> entry.getValue().getIsDecoy())
+                        .count();
 
-                            List<AbstractFilter> filters = new ArrayList<>();
-                            filters.add(RegisteredFilters.PSM_SOURCE_ID_FILTER
-                                    .newInstanceOf(FilterComparator.equal, "index=null", true));
+                List<AbstractFilter> filters = new ArrayList<>();
+                filters.add(RegisteredFilters.PSM_SOURCE_ID_FILTER
+                        .newInstanceOf(FilterComparator.equal, "index=null", true));
 
-                            assayObjects.put("allPsms", modeller.getPSMModeller()
-                                    .getFilteredReportPSMs(FILE_ID, filters));
-                            assayObjects.put("allPeptides", modeller.getPeptideModeller()
-                                    .getFilteredReportPeptides(MERGE_FILE_ID, filters));
-                            assayObjects.put("allProteins", modeller.getProteinModeller()
-                                    .getFilteredReportProteins(filters));
+                assayObjects.put("allPsms", modeller.getPSMModeller()
+                        .getFilteredReportPSMs(FILE_ID, filters));
+                assayObjects.put("allPeptides", modeller.getPeptideModeller()
+                        .getFilteredReportPeptides(MERGE_FILE_ID, filters));
+                assayObjects.put("allProteins", modeller.getProteinModeller()
+                        .getFilteredReportProteins(filters));
 
 
-                            // setting filter for peptide level filtering
-                            modeller = piaModellerService.performFilteringInference(modeller, qValueThreshold, qFilterProteinFDR);
-                            filters.add(new PSMScoreFilter(FilterComparator.less_equal, false,
-                                    qValueThreshold, ScoreModelEnum.PSM_LEVEL_Q_VALUE.getShortName()));              // you can also use fdr score here
+                // setting filter for peptide level filtering
+                modeller = piaModellerService.performFilteringInference(modeller, qValueThreshold, qFilterProteinFDR);
+                filters.add(new PSMScoreFilter(FilterComparator.less_equal, false,
+                        qValueThreshold, ScoreModelEnum.PSM_LEVEL_Q_VALUE.getShortName()));              // you can also use fdr score here
 
-                            // get the FDR filtered highQualityPeptides
-                            List<ReportPSM> highQualityPsms = modeller.getPSMModeller()
-                                    .getFilteredReportPSMs(MERGE_FILE_ID, filters);
-                            List<ReportPeptide> highQualityPeptides = modeller.getPeptideModeller()
-                                    .getFilteredReportPeptides(MERGE_FILE_ID, filters);
-                            List<ReportProtein> highQualityProteins = modeller.getProteinModeller()
-                                    .getFilteredReportProteins(filters);
+                // get the FDR filtered highQualityPeptides
+                List<ReportPSM> highQualityPsms = modeller.getPSMModeller()
+                        .getFilteredReportPSMs(MERGE_FILE_ID, filters);
+                List<ReportPeptide> highQualityPeptides = modeller.getPeptideModeller()
+                        .getFilteredReportPeptides(MERGE_FILE_ID, filters);
+                List<ReportProtein> highQualityProteins = modeller.getProteinModeller()
+                        .getFilteredReportProteins(filters);
 
 
-                            if (!(nrDecoys > 0 && highQualityProteins.size() > 0 && highQualityPeptides.size() > 0 && highQualityPsms.size() > 0 &&
-                                    highQualityPsms.size() >= highQualityPeptides.size())) {
-                                highQualityPeptides = new ArrayList<>();
-                                highQualityProteins = new ArrayList<>();
-                                highQualityPsms = new ArrayList<>();
-                            }
+                if (!(nrDecoys > 0 && highQualityProteins.size() > 0 && highQualityPeptides.size() > 0 && highQualityPsms.size() > 0 &&
+                        highQualityPsms.size() >= highQualityPeptides.size())) {
+                    highQualityPeptides = new ArrayList<>();
+                    highQualityProteins = new ArrayList<>();
+                    highQualityPsms = new ArrayList<>();
+                }
 
-                            assayObjects.put("modeller", modeller);
-                            assayObjects.put("highQualityPsms", highQualityPsms);
-                            assayObjects.put("highQualityPeptides", highQualityPeptides);
-                            assayObjects.put("highQualityProteins", highQualityProteins);
-                        }
-                    } else {
-                        String errorMessage = "The Year and Month for Project Accession can't be found -- " + project.getAccession();
-                        log.error(errorMessage);
-                        throw new IOException(errorMessage);
-                    }
+                assayObjects.put("modeller", modeller);
+                assayObjects.put("highQualityPsms", highQualityPsms);
+                assayObjects.put("highQualityPeptides", highQualityPeptides);
+                assayObjects.put("highQualityProteins", highQualityProteins);
+            }
+        } else {
+            String errorMessage = "The Year and Month for Project Accession can't be found -- " + project.getAccession();
+            log.error(errorMessage);
+            throw new IOException(errorMessage);
+        }
 
-                    taskTimeMap.put(SubmissionPipelineConstants.PrideArchiveStepNames.PRIDE_ARCHIVE_MONGODB_ASSAY_INFERENCE.getName(),
-                            System.currentTimeMillis() - initAnalysisAssay);
+        taskTimeMap.put(SubmissionPipelineConstants.PrideArchiveStepNames.PRIDE_ARCHIVE_MONGODB_ASSAY_INFERENCE.getName(),
+                System.currentTimeMillis() - initAnalysisAssay);
 
-                    return RepeatStatus.FINISHED;
-                }).build();
     }
 
-    @Bean
-    Step updateAssayInformationStep() {
 
-        return stepBuilderFactory
-                .get(SubmissionPipelineConstants.PrideArchiveStepNames.PRIDE_ARCHIVE_MONGODB_ASSAY_UPDATE.name())
-                .tasklet((stepContribution, chunkContext) -> {
-                    for (PrideFile mongoResultFile : mongoResultFiles) {
-                        Map<String, Object> assayObject = assayObjectMap.get(mongoResultFile.getAccession());
-                        if (mongoResultFiles != null && assayObject.get("modeller") != null) {
+    void updateAssayInformationStep() {
+        for (PrideFile mongoResultFile : mongoResultFiles) {
+            Map<String, Object> assayObject = assayObjectMap.get(mongoResultFile.getAccession());
+            if (mongoResultFiles != null && assayObject.get("modeller") != null) {
 
-                            PIAModeller modeller = (PIAModeller) assayObject.get("modeller");
+                PIAModeller modeller = (PIAModeller) assayObject.get("modeller");
 
-                            List<ReportPeptide> highQualityPeptides = (List<ReportPeptide>) assayObject.get("highQualityPeptides");
-                            List<ReportProtein> highQualityProteins = (List<ReportProtein>) assayObject.get("highQualityProteins");
-                            List<ReportPSM> highQualityPsms = (List<ReportPSM>) assayObject.get("highQualityPsms");
+                List<ReportPeptide> highQualityPeptides = (List<ReportPeptide>) assayObject.get("highQualityPeptides");
+                List<ReportProtein> highQualityProteins = (List<ReportProtein>) assayObject.get("highQualityProteins");
+                List<ReportPSM> highQualityPsms = (List<ReportPSM>) assayObject.get("highQualityPsms");
 
-                            List<ReportPeptide> modifiedPeptides = highQualityPeptides.
-                                    stream().filter(x -> x.getModifications().size() > 0)
-                                    .collect(Collectors.toList());
+                List<ReportPeptide> modifiedPeptides = highQualityPeptides.
+                        stream().filter(x -> x.getModifications().size() > 0)
+                        .collect(Collectors.toList());
 
-                            Set<CvParam> summaryResults = new HashSet<>();
+                Set<CvParam> summaryResults = new HashSet<>();
 
 
-                            CvParam peptideParam = new CvParam(CvTermReference.PRIDE_NUMBER_ID_PEPTIDES.getCvLabel(),
-                                    CvTermReference.PRIDE_NUMBER_ID_PEPTIDES.getAccession(),
-                                    CvTermReference.PRIDE_NUMBER_ID_PEPTIDES.getName(),
-                                    String.valueOf(highQualityPeptides.size()));
-                            summaryResults.add(peptideParam);
+                CvParam peptideParam = new CvParam(CvTermReference.PRIDE_NUMBER_ID_PEPTIDES.getCvLabel(),
+                        CvTermReference.PRIDE_NUMBER_ID_PEPTIDES.getAccession(),
+                        CvTermReference.PRIDE_NUMBER_ID_PEPTIDES.getName(),
+                        String.valueOf(highQualityPeptides.size()));
+                summaryResults.add(peptideParam);
 
-                            CvParam proteinParam = new CvParam(CvTermReference.PRIDE_NUMBER_ID_PROTEINS.getCvLabel(),
-                                    CvTermReference.PRIDE_NUMBER_ID_PROTEINS.getAccession(),
-                                    CvTermReference.PRIDE_NUMBER_ID_PROTEINS.getName(),
-                                    String.valueOf(highQualityProteins.size()));
-                            summaryResults.add(proteinParam);
+                CvParam proteinParam = new CvParam(CvTermReference.PRIDE_NUMBER_ID_PROTEINS.getCvLabel(),
+                        CvTermReference.PRIDE_NUMBER_ID_PROTEINS.getAccession(),
+                        CvTermReference.PRIDE_NUMBER_ID_PROTEINS.getName(),
+                        String.valueOf(highQualityProteins.size()));
+                summaryResults.add(proteinParam);
 
-                            CvParam psmParam = new CvParam(CvTermReference.PRIDE_NUMBER_ID_PSMS.getCvLabel(),
-                                    CvTermReference.PRIDE_NUMBER_ID_PSMS.getAccession(),
-                                    CvTermReference.PRIDE_NUMBER_ID_PSMS.getName(),
-                                    String.valueOf(highQualityPsms.size()));
-                            summaryResults.add(psmParam);
+                CvParam psmParam = new CvParam(CvTermReference.PRIDE_NUMBER_ID_PSMS.getCvLabel(),
+                        CvTermReference.PRIDE_NUMBER_ID_PSMS.getAccession(),
+                        CvTermReference.PRIDE_NUMBER_ID_PSMS.getName(),
+                        String.valueOf(highQualityPsms.size()));
+                summaryResults.add(psmParam);
 
-                            CvParam modifiedPeptideParam = new CvParam(CvTermReference.PRIDE_NUMBER_ID_PEPTIDES.getCvLabel(),
-                                    CvTermReference.PRIDE_NUMBER_ID_PEPTIDES.getAccession(),
-                                    CvTermReference.PRIDE_NUMBER_ID_PEPTIDES.getName(),
-                                    String.valueOf(modifiedPeptides.size()));
-                            summaryResults.add(modifiedPeptideParam);
-
-
-                            List<Tuple<CvParam, Integer>> modificationCount = modifiedPeptides.stream()
-                                    .flatMap(x -> x.getModifications().values().stream())
-                                    .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
-                                    .entrySet().stream()
-                                    .map(entry -> new Tuple<>(new CvParam(entry.getKey().getCvLabel(), entry.getKey().getAccession(), entry.getKey().getDescription(), String.valueOf(entry.getKey().getMass())), entry.getValue().intValue()))
-                                    .collect(Collectors.toList());
-
-                            boolean isValid;
+                CvParam modifiedPeptideParam = new CvParam(CvTermReference.PRIDE_NUMBER_ID_PEPTIDES.getCvLabel(),
+                        CvTermReference.PRIDE_NUMBER_ID_PEPTIDES.getAccession(),
+                        CvTermReference.PRIDE_NUMBER_ID_PEPTIDES.getName(),
+                        String.valueOf(modifiedPeptides.size()));
+                summaryResults.add(modifiedPeptideParam);
 
 
-                            if (highQualityPeptides.size() > 0 && highQualityProteins.size() > 0 && highQualityPsms.size() > 0)
-                                isValid = true;
-                            else
-                                isValid = false;
+                List<Tuple<CvParam, Integer>> modificationCount = modifiedPeptides.stream()
+                        .flatMap(x -> x.getModifications().values().stream())
+                        .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
+                        .entrySet().stream()
+                        .map(entry -> new Tuple<>(new CvParam(entry.getKey().getCvLabel(), entry.getKey().getAccession(), entry.getKey().getDescription(), String.valueOf(entry.getKey().getMass())), entry.getValue().intValue()))
+                        .collect(Collectors.toList());
 
-                            Set<CvParam> validationMethods = new HashSet<>();
-
-                            if (isValid) {
-                                validationMethods.add(new CvParam(CvTermReference.MS_DECOY_VALIDATION_METHOD.getCvLabel(),
-                                        CvTermReference.MS_DECOY_VALIDATION_METHOD.getAccession(), CvTermReference.MS_DECOY_VALIDATION_METHOD.getName(), String.valueOf(true)));
-                            } else
-                                validationMethods.add(new CvParam(CvTermReference.MS_DECOY_VALIDATION_METHOD.getCvLabel(),
-                                        CvTermReference.MS_DECOY_VALIDATION_METHOD.getAccession(), CvTermReference.MS_DECOY_VALIDATION_METHOD.getName(), String.valueOf(false)));
-
-                            assayObject.put("validationMethods", validationMethods);
-                            assayObject.put("isValid", isValid);
-
-                            List<MongoAssayFile> mongoAssayFiles = new ArrayList<>();
-
-                            //TO-DO relatedFiles
-
-                            mongoAssayFiles.add(MongoAssayFile.builder().fileName(mongoResultFile.getFileName())
-                                    .fileAccession(mongoResultFile.getAccession())
-                                    .fileCategory((CvParam) mongoResultFile.getFileCategory())
-                                   // .relatedFiles(mo)
-                                    .build());
+                boolean isValid;
 
 
-                            MongoPrideAssay mongoPrideAssay = MongoPrideAssay.builder()
-                                    .assayType(AssayType.IDENTIFICATION)
-                                    .accession(mongoResultFile.getAccession())
-                                    .title(project.getTitle())
-                                    .projectAccessions(Collections.singleton(project.getAccession()))
-                                    .analysisAccessions(Collections.singleton(project.getAccession()))
-                                    .dataAnalysisSoftwares(convertMapOfAnalysisSoftwareToSet(modeller.getAnalysisSoftwares()))
-                                    .summaryResults(summaryResults)
-                                    .ptmsResults(getPtmsResults(modifiedPeptides))
-                                    .assayFiles(mongoAssayFiles)
-                                    .build();
-                            assayList.add(mongoPrideAssay);
-                        }
+                if (highQualityPeptides.size() > 0 && highQualityProteins.size() > 0 && highQualityPsms.size() > 0)
+                    isValid = true;
+                else
+                    isValid = false;
+
+                Set<CvParam> validationMethods = new HashSet<>();
+
+                if (isValid) {
+                    validationMethods.add(new CvParam(CvTermReference.MS_DECOY_VALIDATION_METHOD.getCvLabel(),
+                            CvTermReference.MS_DECOY_VALIDATION_METHOD.getAccession(), CvTermReference.MS_DECOY_VALIDATION_METHOD.getName(), String.valueOf(true)));
+                } else
+                    validationMethods.add(new CvParam(CvTermReference.MS_DECOY_VALIDATION_METHOD.getCvLabel(),
+                            CvTermReference.MS_DECOY_VALIDATION_METHOD.getAccession(), CvTermReference.MS_DECOY_VALIDATION_METHOD.getName(), String.valueOf(false)));
+
+                assayObject.put("validationMethods", validationMethods);
+                assayObject.put("isValid", isValid);
+
+                List<MongoAssayFile> mongoAssayFiles = new ArrayList<>();
+
+                //TO-DO relatedFiles
+
+                mongoAssayFiles.add(MongoAssayFile.builder().fileName(mongoResultFile.getFileName())
+                        .fileAccession(mongoResultFile.getAccession())
+                        .fileCategory((CvParam) mongoResultFile.getFileCategory())
+                        // .relatedFiles(mo)
+                        .build());
 
 
-                    }
+                MongoPrideAssay mongoPrideAssay = MongoPrideAssay.builder()
+                        .assayType(AssayType.IDENTIFICATION)
+                        .accession(mongoResultFile.getAccession())
+                        .title(project.getTitle())
+                        .projectAccessions(Collections.singleton(project.getAccession()))
+                        .analysisAccessions(Collections.singleton(project.getAccession()))
+                        .dataAnalysisSoftwares(convertMapOfAnalysisSoftwareToSet(modeller.getAnalysisSoftwares()))
+                        .summaryResults(summaryResults)
+                        .ptmsResults(getPtmsResults(modifiedPeptides))
+                        .assayFiles(mongoAssayFiles)
+                        .build();
+                assayList.add(mongoPrideAssay);
+            }
+
+
+        }
 
 //                    prideProjectMongoService.saveAssays(assayList);
 
-                    return RepeatStatus.FINISHED;
-                }).build();
+
+
     }
 
     private List<Tuple<CvParam, Integer>> getPtmsResults(List<ReportPeptide> modifiedPeptides) {
@@ -476,194 +431,169 @@ public class PrideAnalysisAssayService {
      *
      * @return the calculatePrideArchiveDataUsage job
      */
-    @Bean
-    public Job reanalysisAnalyzeAssayInformationJob() {
-        return jobBuilderFactory
-                .get(SubmissionPipelineConstants.PrideArchiveJobNames.PRIDE_ARCHIVE_MONGODB_REANALYSIS_ASSAY_ANALYSIS.getName())
-                .start(stepBuilderFactory
-                        .get("initJobPRIDEReanalysisAnalyzeAssayJob")
-                        .tasklet(initJobPRIDEReanalysisAnalyzeAssayJob())
-                        .build())
-                .next(analyzeAssayInformationStep())
-                .next(updateAssayInformationStep())
-                .next(indexSpectraStep())
-                .next(proteinPeptideIndexStep())
-                .next(analyzeAssayPrintTraceStep())
-                .build();
+    public void reanalysisAnalyzeAssayInformationJob() throws Exception {
+        initJobPRIDEReanalysisAnalyzeAssayJob();
+        analyzeAssayInformationStep();
+        updateAssayInformationStep();
+        indexSpectraStep();
+        proteinPeptideIndexStep();
+        analyzeAssayPrintTraceStep();
     }
 
-    @Bean
-    public Step analyzeAssayPrintTraceStep() {
-        return stepBuilderFactory
-                .get("analyzeAssayPrintTraceStep")
-                .tasklet((stepContribution, chunkContext) -> {
-                    taskTimeMap.forEach((key, value) -> log.info("Task: " + key + " Time: " + value));
-                    Set<Map.Entry<String, Map<String, Object>>> assaySet = assayObjectMap.entrySet();
-                    for (Map.Entry<String, Map<String, Object>> assay : assaySet) {
-                        Map<String, Object> assayObject = assay.getValue();
-                        ((BufferedWriter) assayObject.get("proteinEvidenceBufferedWriter")).close();
-                        ((BufferedWriter) assayObject.get("peptideEvidenceBufferedWriter")).close();
-                        ((BufferedWriter) assayObject.get("archiveSpectrumBufferedWriter")).close();
-                        ((BufferedWriter) assayObject.get("psmSummaryEvidenceBufferedWriter")).close();
+    public void analyzeAssayPrintTraceStep() throws IOException {
+        taskTimeMap.forEach((key, value) -> log.info("Task: " + key + " Time: " + value));
+
+        Set<Map.Entry<String, Map<String, Object>>> assaySet = assayObjectMap.entrySet();
+        for (Map.Entry<String, Map<String, Object>> assay : assaySet) {
+            Map<String, Object> assayObject = assay.getValue();
+            ((BufferedWriter) assayObject.get("proteinEvidenceBufferedWriter")).close();
+            ((BufferedWriter) assayObject.get("peptideEvidenceBufferedWriter")).close();
+            ((BufferedWriter) assayObject.get("archiveSpectrumBufferedWriter")).close();
+            ((BufferedWriter) assayObject.get("psmSummaryEvidenceBufferedWriter")).close();
+        }
+    }
+
+    public void proteinPeptideIndexStep() throws Exception {
+        long initInsertPeptides = System.currentTimeMillis();
+
+        for (PrideFile mongoResultFile : mongoResultFiles) {
+            Map<String, Object> assayObjects = assayObjectMap.get(mongoResultFile.getAccession());
+            if (mongoResultFiles != null && assayObjectMap.get("modeller") != null) {
+
+                log.info("proteinPeptideIndexStep assay file  -- " + mongoResultFile.getFileName());
+
+                PIAModeller modeller = (PIAModeller) assayObjects.get("modeller");
+
+                List<ReportPeptide> highQualityPeptides = (List<ReportPeptide>) assayObjects.get("highQualityPeptides");
+                List<ReportProtein> highQualityProteins = (List<ReportProtein>) assayObjects.get("highQualityProteins");
+                List<ReportPSM> highQualityPsms = (List<ReportPSM>) assayObjects.get("highQualityPsms");
+                List<ReportPSM> allPsms = (List<ReportPSM>) assayObjects.get("allPsms");
+                List<ReportPeptide> allPeptides = (List<ReportPeptide>) assayObjects.get("allPeptides");
+                List<ReportProtein> allProteins = (List<ReportProtein>) assayObjects.get("allProteins");
+
+                Set<String> proteinIds = new HashSet<>();
+                Set<String> peptideSequences = new HashSet<>();
+
+                List<ReportPeptide> peptides;
+                List<ReportProtein> proteins;
+                List<ReportPSM> psms = new ArrayList<>();
+
+                if (highQualityPeptides.size() > 0 && highQualityPsms.size() > 0 && highQualityProteins.size() > 0) {
+                    peptides = highQualityPeptides;
+                    proteins = highQualityProteins;
+                    psms = highQualityPsms;
+                } else {
+                    peptides = allPeptides;
+                    proteins = allProteins;
+                    psms = allPsms;
+                }
+
+                List<ReportPeptide> finalPeptides = peptides;
+
+                for (ReportProtein protein : proteins) {
+                    String proteinSequence = protein.getRepresentative().getDbSequence();
+                    String proteinAccession = protein.getRepresentative().getAccession();
+                    Set<String> proteinGroups = protein.getAccessions()
+                            .stream().map(Accession::getAccession)
+                            .collect(Collectors.toSet());
+
+                    List<IdentifiedModificationProvider> proteinPTMs = new ArrayList<>(convertProteinModifications(
+                            proteinAccession, protein.getPeptides()));
+
+                    log.info(String.valueOf(protein.getQValue()));
+
+                    CvParam scoreParam = null;
+                    Set<CvParam> attributes = new HashSet<>();
+
+                    if (!Double.isFinite(protein.getQValue()) && !Double.isNaN(protein.getQValue())) {
+
+                        String value = df.format(protein.getQValue());
+
+                        scoreParam = new CvParam(CvTermReference.MS_PIA_PROTEIN_GROUP_QVALUE.getCvLabel(),
+                                CvTermReference.MS_PIA_PROTEIN_GROUP_QVALUE.getAccession(),
+                                CvTermReference.MS_PIA_PROTEIN_GROUP_QVALUE.getName(), value);
+                        attributes.add(scoreParam);
                     }
-                    return RepeatStatus.FINISHED;
-                }).build();
-    }
 
-    @Bean
-    public Step proteinPeptideIndexStep() {
-        return stepBuilderFactory
-                .get(SubmissionPipelineConstants.PrideArchiveStepNames.PRIDE_ARCHIVE_MONGODB_PROTEIN_UPDATE.name())
-                .tasklet(new Tasklet() {
-                    @Override
-                    public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext) throws Exception {
+                    if (protein.getScore() != null && !protein.getScore().isNaN()) {
+                        String value = df.format(protein.getScore());
+                        scoreParam = new CvParam(CvTermReference.MS_PIA_PROTEIN_SCORE.getCvLabel(),
+                                CvTermReference.MS_PIA_PROTEIN_SCORE.getAccession(),
+                                CvTermReference.MS_PIA_PROTEIN_SCORE.getName(), value);
+                        attributes.add(scoreParam);
+                    }
 
-                        long initInsertPeptides = System.currentTimeMillis();
+                    AtomicReference<CvParam> param = new AtomicReference<>(new CvParam(PRIDETools.PrideOntologyConstants
+                            .PRIDE_SUBMITTERS_THERSHOLD.getCvLabel(),
+                            PRIDETools.PrideOntologyConstants.PRIDE_SUBMITTERS_THERSHOLD.getAccession(),
+                            PRIDETools.PrideOntologyConstants.PRIDE_SUBMITTERS_THERSHOLD.getName(),
+                            Boolean.toString(false)));
 
-                        for (PrideFile mongoResultFile : mongoResultFiles) {
-                            Map<String, Object> assayObjects = assayObjectMap.get(mongoResultFile.getAccession());
-                            if (mongoResultFiles != null && assayObjectMap.get("modeller") != null) {
-
-                                log.info("proteinPeptideIndexStep assay file  -- " + mongoResultFile.getFileName());
-
-                                PIAModeller modeller = (PIAModeller) assayObjects.get("modeller");
-
-                                List<ReportPeptide> highQualityPeptides = (List<ReportPeptide>) assayObjects.get("highQualityPeptides");
-                                List<ReportProtein> highQualityProteins = (List<ReportProtein>) assayObjects.get("highQualityProteins");
-                                List<ReportPSM> highQualityPsms = (List<ReportPSM>) assayObjects.get("highQualityPsms");
-                                List<ReportPSM> allPsms = (List<ReportPSM>) assayObjects.get("allPsms");
-                                List<ReportPeptide> allPeptides = (List<ReportPeptide>) assayObjects.get("allPeptides");
-                                List<ReportProtein> allProteins = (List<ReportProtein>) assayObjects.get("allProteins");
-
-                                Set<String> proteinIds = new HashSet<>();
-                                Set<String> peptideSequences = new HashSet<>();
-
-                                List<ReportPeptide> peptides;
-                                List<ReportProtein> proteins;
-                                List<ReportPSM> psms = new ArrayList<>();
-
-                                if (highQualityPeptides.size() > 0 && highQualityPsms.size() > 0 && highQualityProteins.size() > 0) {
-                                    peptides = highQualityPeptides;
-                                    proteins = highQualityProteins;
-                                    psms = highQualityPsms;
-                                } else {
-                                    peptides = allPeptides;
-                                    proteins = allProteins;
-                                    psms = allPsms;
-                                }
-
-                                List<ReportPeptide> finalPeptides = peptides;
-
-                                for (ReportProtein protein : proteins) {
-                                    String proteinSequence = protein.getRepresentative().getDbSequence();
-                                    String proteinAccession = protein.getRepresentative().getAccession();
-                                    Set<String> proteinGroups = protein.getAccessions()
-                                            .stream().map(Accession::getAccession)
-                                            .collect(Collectors.toSet());
-
-                                    List<IdentifiedModificationProvider> proteinPTMs = new ArrayList<>(convertProteinModifications(
-                                            proteinAccession, protein.getPeptides()));
-
-                                    log.info(String.valueOf(protein.getQValue()));
-
-                                    CvParam scoreParam = null;
-                                    Set<CvParam> attributes = new HashSet<>();
-
-                                    if (!Double.isFinite(protein.getQValue()) && !Double.isNaN(protein.getQValue())) {
-
-                                        String value = df.format(protein.getQValue());
-
-                                        scoreParam = new CvParam(CvTermReference.MS_PIA_PROTEIN_GROUP_QVALUE.getCvLabel(),
-                                                CvTermReference.MS_PIA_PROTEIN_GROUP_QVALUE.getAccession(),
-                                                CvTermReference.MS_PIA_PROTEIN_GROUP_QVALUE.getName(), value);
-                                        attributes.add(scoreParam);
-                                    }
-
-                                    if (protein.getScore() != null && !protein.getScore().isNaN()) {
-                                        String value = df.format(protein.getScore());
-                                        scoreParam = new CvParam(CvTermReference.MS_PIA_PROTEIN_SCORE.getCvLabel(),
-                                                CvTermReference.MS_PIA_PROTEIN_SCORE.getAccession(),
-                                                CvTermReference.MS_PIA_PROTEIN_SCORE.getName(), value);
-                                        attributes.add(scoreParam);
-                                    }
-
-                                    AtomicReference<CvParam> param = new AtomicReference<>(new CvParam(PRIDETools.PrideOntologyConstants
-                                            .PRIDE_SUBMITTERS_THERSHOLD.getCvLabel(),
-                                            PRIDETools.PrideOntologyConstants.PRIDE_SUBMITTERS_THERSHOLD.getAccession(),
-                                            PRIDETools.PrideOntologyConstants.PRIDE_SUBMITTERS_THERSHOLD.getName(),
-                                            Boolean.toString(false)));
-
-                                    AtomicBoolean submitterValid = new AtomicBoolean(false);
-                                    protein.getPeptides().stream().forEach(x -> {
-                                        x.getPeptide().getSpectra().stream().forEach(y -> {
-                                            for (AbstractParam abstractParam : y.getParams()) {
-                                                if (abstractParam instanceof uk.ac.ebi.jmzidml.model.mzidml.CvParam) {
-                                                    uk.ac.ebi.jmzidml.model.mzidml.CvParam cv = (uk.ac.ebi.jmzidml.model.mzidml.CvParam) abstractParam;
-                                                    if (cv.getAccession().equalsIgnoreCase("PRIDE:0000511") &&
-                                                            cv.getValue().equalsIgnoreCase("true")) {
-                                                        param.set(new CvParam(PRIDETools.PrideOntologyConstants.PRIDE_SUBMITTERS_THERSHOLD
-                                                                .getCvLabel(),
-                                                                PRIDETools.PrideOntologyConstants.PRIDE_SUBMITTERS_THERSHOLD.getAccession(),
-                                                                PRIDETools.PrideOntologyConstants.PRIDE_SUBMITTERS_THERSHOLD.getName(),
-                                                                Boolean.toString(true)));
-                                                        submitterValid.set(true);
-                                                    }
-                                                }
-                                            }
-                                        });
-                                    });
-
-                                    attributes.add(param.get());
-                                    proteinIds.add(proteinAccession);
-                                    protein.getPeptides().forEach(x -> peptideSequences.add(x.getSequence()));
-
-                                    Set<CvParam> validationMethods = (Set<CvParam>) assayObjects.get("validationMethods");
-
-                                    boolean isValid = (boolean) assayObjects.get("isValid");
-
-                                    PrideMongoProteinEvidence proteinEvidence = PrideMongoProteinEvidence
-                                            .builder()
-                                            .reportedAccession(proteinAccession)
-                                            .isDecoy(protein.getIsDecoy())
-                                            .proteinGroupMembers(proteinGroups)
-                                            .ptms(proteinPTMs)
-                                            .projectAccession(projectAccession)
-                                            .proteinSequence(proteinSequence)
-                                            .bestSearchEngineScore(scoreParam)
-                                            .additionalAttributes(attributes)
-                                            .assayAccession(mongoResultFile.getAccession())
-                                            .isValid(isValid)
-                                            .qualityEstimationMethods(validationMethods)
-                                            .numberPeptides(protein.getPeptides().size())
-                                            .numberPSMs(protein.getNrPSMs())
-                                            .sequenceCoverage(protein.getCoverage(proteinAccession))
-                                            .build();
-
-                                    if (isValid || submitterValid.get()) {
-                                        try {
-                                            BackupUtil.write(proteinEvidence, (BufferedWriter) assayObjects.get("proteinEvidenceBufferedWriter"));
-//                                            moleculesService.insertProteinEvidences(proteinEvidence);
-                                        } catch (DuplicateKeyException ex) {
-//                                            moleculesService.saveProteinEvidences(proteinEvidence);
-                                            log.debug("The protein was already in the database -- " + proteinEvidence.getReportedAccession());
-                                        } catch (Exception e) {
-                                            log.error(e.getMessage(), e);
-                                            throw new Exception(e);
-                                        }
-                                        indexPeptideByProtein(protein, finalPeptides, (Map<Long, List<PeptideSpectrumOverview>>) assayObjects.get("peptideUsi")
-                                                , (Set<CvParam>) assayObjects.get("validationMethods"),
-                                                (BufferedWriter) assayObjects.get("peptideEvidenceBufferedWriter"),
-                                                mongoResultFile.getAccession(), isValid);
+                    AtomicBoolean submitterValid = new AtomicBoolean(false);
+                    protein.getPeptides().stream().forEach(x -> {
+                        x.getPeptide().getSpectra().stream().forEach(y -> {
+                            for (AbstractParam abstractParam : y.getParams()) {
+                                if (abstractParam instanceof uk.ac.ebi.jmzidml.model.mzidml.CvParam) {
+                                    uk.ac.ebi.jmzidml.model.mzidml.CvParam cv = (uk.ac.ebi.jmzidml.model.mzidml.CvParam) abstractParam;
+                                    if (cv.getAccession().equalsIgnoreCase("PRIDE:0000511") &&
+                                            cv.getValue().equalsIgnoreCase("true")) {
+                                        param.set(new CvParam(PRIDETools.PrideOntologyConstants.PRIDE_SUBMITTERS_THERSHOLD
+                                                .getCvLabel(),
+                                                PRIDETools.PrideOntologyConstants.PRIDE_SUBMITTERS_THERSHOLD.getAccession(),
+                                                PRIDETools.PrideOntologyConstants.PRIDE_SUBMITTERS_THERSHOLD.getName(),
+                                                Boolean.toString(true)));
+                                        submitterValid.set(true);
                                     }
                                 }
                             }
+                        });
+                    });
+
+                    attributes.add(param.get());
+                    proteinIds.add(proteinAccession);
+                    protein.getPeptides().forEach(x -> peptideSequences.add(x.getSequence()));
+
+                    Set<CvParam> validationMethods = (Set<CvParam>) assayObjects.get("validationMethods");
+
+                    boolean isValid = (boolean) assayObjects.get("isValid");
+
+                    PrideMongoProteinEvidence proteinEvidence = PrideMongoProteinEvidence
+                            .builder()
+                            .reportedAccession(proteinAccession)
+                            .isDecoy(protein.getIsDecoy())
+                            .proteinGroupMembers(proteinGroups)
+                            .ptms(proteinPTMs)
+                            .projectAccession(projectAccession)
+                            .proteinSequence(proteinSequence)
+                            .bestSearchEngineScore(scoreParam)
+                            .additionalAttributes(attributes)
+                            .assayAccession(mongoResultFile.getAccession())
+                            .isValid(isValid)
+                            .qualityEstimationMethods(validationMethods)
+                            .numberPeptides(protein.getPeptides().size())
+                            .numberPSMs(protein.getNrPSMs())
+                            .sequenceCoverage(protein.getCoverage(proteinAccession))
+                            .build();
+
+                    if (isValid || submitterValid.get()) {
+                        try {
+                            BackupUtil.write(proteinEvidence, (BufferedWriter) assayObjects.get("proteinEvidenceBufferedWriter"));
+//                                            moleculesService.insertProteinEvidences(proteinEvidence);
+                        } catch (DuplicateKeyException ex) {
+//                                            moleculesService.saveProteinEvidences(proteinEvidence);
+                            log.debug("The protein was already in the database -- " + proteinEvidence.getReportedAccession());
+                        } catch (Exception e) {
+                            log.error(e.getMessage(), e);
+                            throw new Exception(e);
                         }
-
-                        taskTimeMap.put("InsertPeptidesProteinsIntoMongoDB", System.currentTimeMillis() - initInsertPeptides);
-
-                        return RepeatStatus.FINISHED;
+                        indexPeptideByProtein(protein, finalPeptides, (Map<Long, List<PeptideSpectrumOverview>>) assayObjects.get("peptideUsi")
+                                , (Set<CvParam>) assayObjects.get("validationMethods"),
+                                (BufferedWriter) assayObjects.get("peptideEvidenceBufferedWriter"),
+                                mongoResultFile.getAccession(), isValid);
                     }
-                }).build();
+                }
+            }
+        }
     }
 
     /**
@@ -916,54 +846,49 @@ public class PrideAnalysisAssayService {
 
     }
 
-    @Bean
-    public Step indexSpectraStep() {
-        return stepBuilderFactory
-                .get(SubmissionPipelineConstants.PrideArchiveStepNames.PRIDE_ARCHIVE_MONGODB_SPECTRUM_UPDATE.name())
-                .tasklet(new Tasklet() {
-                    @Override
-                    public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext) throws Exception {
-                        long initSpectraStep = System.currentTimeMillis();
+    public void indexSpectraStep() throws Exception {
 
-                        for (MongoPrideAssay mongoPrideAssay : assayList) {
+        long initSpectraStep = System.currentTimeMillis();
 
-                            log.info("indexSpectraStep assay file  -- " + mongoPrideAssay.getFileName());
+        for (MongoPrideAssay mongoPrideAssay : assayList) {
 
-                            Map<String, Object> assayObjects = assayObjectMap.get(mongoPrideAssay.getAccession());
-                            List<ReportPeptide> highQualityPeptides = (List<ReportPeptide>) assayObjects.get("highQualityPeptides");
+            log.info("indexSpectraStep assay file  -- " + mongoPrideAssay.getFileName());
 
-                            List<ReportPeptide> peptides;
-                            if (highQualityPeptides.size() > 0)
-                                peptides = highQualityPeptides;
-                            else
-                                peptides = (List<ReportPeptide>) assayObjects.get("allPeptides");
+            Map<String, Object> assayObjects = assayObjectMap.get(mongoPrideAssay.getAccession());
+            List<ReportPeptide> highQualityPeptides = (List<ReportPeptide>) assayObjects.get("highQualityPeptides");
 
-                            PIAModeller modeller = (PIAModeller) assayObjects.get("modeller");
+            List<ReportPeptide> peptides;
+            if (highQualityPeptides.size() > 0)
+                peptides = highQualityPeptides;
+            else
+                peptides = (List<ReportPeptide>) assayObjects.get("allPeptides");
 
-                            if (modeller != null && peptides.size() > 0) {
+            PIAModeller modeller = (PIAModeller) assayObjects.get("modeller");
 
-                                List<SpectraData> spectrumFiles = modeller.getSpectraData()
-                                        .entrySet().stream().map(Map.Entry::getValue)
-                                        .collect(Collectors.toList());
+            if (modeller != null && peptides.size() > 0) {
 
-                                AtomicInteger totalPSM = new AtomicInteger();
-                                AtomicInteger errorDeltaPSM = new AtomicInteger();
+                List<SpectraData> spectrumFiles = modeller.getSpectraData()
+                        .entrySet().stream().map(Map.Entry::getValue)
+                        .collect(Collectors.toList());
 
-                                Optional<MongoAssayFile> assayResultFile = mongoPrideAssay.getAssayFiles()
-                                        .stream().filter(x -> x.getFileCategory()
-                                                .getValue().equalsIgnoreCase("RESULT")).findFirst();
+                AtomicInteger totalPSM = new AtomicInteger();
+                AtomicInteger errorDeltaPSM = new AtomicInteger();
 
-                                if (assayResultFile.isPresent() && (spectrumFiles.size() > 0
-                                        || assayResultFile.get().getFileCategory().getAccession().equalsIgnoreCase("PRIDE:1002848"))) {
+                Optional<MongoAssayFile> assayResultFile = mongoPrideAssay.getAssayFiles()
+                        .stream().filter(x -> x.getFileCategory()
+                                .getValue().equalsIgnoreCase("RESULT")).findFirst();
 
-                                    JmzReaderSpectrumService service = null;
-                                    List<Triple<String, SpectraData, SubmissionPipelineConstants.FileType>> mongoRelatedFiles = new ArrayList<>(spectrumFiles.size());
+                if (assayResultFile.isPresent() && (spectrumFiles.size() > 0
+                        || assayResultFile.get().getFileCategory().getAccession().equalsIgnoreCase("PRIDE:1002848"))) {
+
+                    JmzReaderSpectrumService service = null;
+                    List<Triple<String, SpectraData, SubmissionPipelineConstants.FileType>> mongoRelatedFiles = new ArrayList<>(spectrumFiles.size());
 
 
-                                    if (spectrumFiles.size() == 0) {
-                                        throw new Exception("No spectra file found");
-                                    }
-                                    List<Triple<String, SpectraData, SubmissionPipelineConstants.FileType>> finalMongoRelatedFilesFiltered = mongoRelatedFiles;
+                    if (spectrumFiles.size() == 0) {
+                        throw new Exception("No spectra file found");
+                    }
+                    List<Triple<String, SpectraData, SubmissionPipelineConstants.FileType>> finalMongoRelatedFilesFiltered = mongoRelatedFiles;
 //                                    List<MongoPrideFile> fileNamesFiltered = mongoPrideFiles.stream().filter(x -> {
 //                                        boolean isNotFile = false;
 //                                        for( SpectraData fileInResult: spectrumFiles){
@@ -983,256 +908,254 @@ public class PrideAnalysisAssayService {
 //                                        return isNotFile;
 //                                    }).collect(Collectors.toList());
 
-                                    service = JmzReaderSpectrumService.getInstance(finalMongoRelatedFilesFiltered);
+                    service = JmzReaderSpectrumService.getInstance(finalMongoRelatedFilesFiltered);
 
 
 
 
-                                    JmzReaderSpectrumService finalService = service;
-                                    List<Triple<String, SpectraData, SubmissionPipelineConstants.FileType>> finalMongoRelatedFiles = finalMongoRelatedFilesFiltered;
+                    JmzReaderSpectrumService finalService = service;
+                    List<Triple<String, SpectraData, SubmissionPipelineConstants.FileType>> finalMongoRelatedFiles = finalMongoRelatedFilesFiltered;
 
-                                    peptides.forEach(peptide -> peptide.getPSMs().forEach(psm -> {
-                                        try {
-                                            PeptideSpectrumMatch spectrum = null;
-                                            if (psm instanceof ReportPSM)
-                                                spectrum = ((ReportPSM) psm).getSpectrum();
+                    peptides.forEach(peptide -> peptide.getPSMs().forEach(psm -> {
+                        try {
+                            PeptideSpectrumMatch spectrum = null;
+                            if (psm instanceof ReportPSM)
+                                spectrum = ((ReportPSM) psm).getSpectrum();
 
-                                            totalPSM.set(totalPSM.get() + 1);
+                            totalPSM.set(totalPSM.get() + 1);
 
-                                            PeptideSpectrumMatch finalSpectrum = spectrum;
-                                            System.out.println(finalSpectrum.getSourceID());
+                            PeptideSpectrumMatch finalSpectrum = spectrum;
+                            System.out.println(finalSpectrum.getSourceID());
 
-                                            Spectrum fileSpectrum = null;
-                                            String spectrumFile = null;
-                                            String fileName = null;
-                                            Optional<Triple<String, SpectraData, SubmissionPipelineConstants.FileType>> refeFile = null;
-                                            String usi = null;
-                                            String spectraUsi = null;
+                            Spectrum fileSpectrum = null;
+                            String spectrumFile = null;
+                            String fileName = null;
+                            Optional<Triple<String, SpectraData, SubmissionPipelineConstants.FileType>> refeFile = null;
+                            String usi = null;
+                            String spectraUsi = null;
 
-                                            if (spectrumFiles.size() > 0) {
-                                                refeFile = finalMongoRelatedFiles.stream()
-                                                        .filter(x -> x.getSecond().getId()
-                                                                .equalsIgnoreCase(finalSpectrum.getSpectrumIdentification()
-                                                                        .getInputSpectra().get(0).getSpectraDataRef()))
-                                                        .findFirst();
-                                                spectrumFile = refeFile.get().getFirst();
-                                                String spectrumId = SubmissionPipelineConstants.getSpectrumId(refeFile.get().getSecond(), (ReportPSM) psm);
-                                                fileSpectrum = finalService.getSpectrumById(spectrumFile, spectrumId);
+                            if (spectrumFiles.size() > 0) {
+                                refeFile = finalMongoRelatedFiles.stream()
+                                        .filter(x -> x.getSecond().getId()
+                                                .equalsIgnoreCase(finalSpectrum.getSpectrumIdentification()
+                                                        .getInputSpectra().get(0).getSpectraDataRef()))
+                                        .findFirst();
+                                spectrumFile = refeFile.get().getFirst();
+                                String spectrumId = SubmissionPipelineConstants.getSpectrumId(refeFile.get().getSecond(), (ReportPSM) psm);
+                                fileSpectrum = finalService.getSpectrumById(spectrumFile, spectrumId);
 
-                                                usi = SubmissionPipelineConstants.buildUsi(projectAccession, refeFile.get(),
-                                                        (ReportPSM) psm);
-                                                Path p = Paths.get(refeFile.get().getFirst());
-                                                fileName = p.getFileName().toString();
+                                usi = SubmissionPipelineConstants.buildUsi(projectAccession, refeFile.get(),
+                                        (ReportPSM) psm);
+                                Path p = Paths.get(refeFile.get().getFirst());
+                                fileName = p.getFileName().toString();
+                            }
+
+                            spectraUsi = SubmissionPipelineConstants.getSpectraUsiFromUsi(usi);
+
+                            log.info(fileSpectrum.getId() + " " + (psm.getMassToCharge() - fileSpectrum.getPrecursorMZ()));
+                            Double[] masses = new Double[fileSpectrum.getPeakList().size()];
+                            Double[] intensities = new Double[fileSpectrum.getPeakList().size()];
+                            int count = 0;
+                            for (Map.Entry entry : fileSpectrum.getPeakList().entrySet()) {
+                                masses[count] = (Double) entry.getKey();
+                                intensities[count] = (Double) entry.getValue();
+                                count++;
+                            }
+
+                            Set<CvParam> properties = new HashSet<>();
+                            Set<CvParam> psmAttributes = new HashSet<>();
+
+                            for (ScoreModelEnum scoreModel : ScoreModelEnum.values()) {
+                                Double scoreValue = psm.getScore(scoreModel.getShortName());
+                                if (scoreValue != null && !scoreValue.isNaN()) {
+                                    for (CvTermReference ref : CvTermReference.values()) {
+                                        if (ref.getAccession().equalsIgnoreCase(scoreModel.getCvAccession())) {
+                                            CvParam cv = new CvParam(ref.getCvLabel(), ref.getAccession(),
+                                                    ref.getName(), String.valueOf(scoreValue));
+                                            properties.add(cv);
+                                            if (ref.getAccession().equalsIgnoreCase("MS:1002355")) {
+                                                CvParam bestSearchEngine = new CvParam(cv.getCvLabel(), cv.getAccession(), cv.getName(), cv.getValue());
+                                                psmAttributes.add(bestSearchEngine);
                                             }
 
-                                            spectraUsi = SubmissionPipelineConstants.getSpectraUsiFromUsi(usi);
+                                        }
 
-                                            log.info(fileSpectrum.getId() + " " + (psm.getMassToCharge() - fileSpectrum.getPrecursorMZ()));
-                                            Double[] masses = new Double[fileSpectrum.getPeakList().size()];
-                                            Double[] intensities = new Double[fileSpectrum.getPeakList().size()];
-                                            int count = 0;
-                                            for (Map.Entry entry : fileSpectrum.getPeakList().entrySet()) {
-                                                masses[count] = (Double) entry.getKey();
-                                                intensities[count] = (Double) entry.getValue();
-                                                count++;
+                                    }
+                                }
+                            }
+
+                            // Capturing additional parameters provided by the user.
+                            boolean submitterValid = false;
+                            for (AbstractParam abstractParam : spectrum.getParams()) {
+                                if (abstractParam != null) {
+                                    if (abstractParam instanceof uk.ac.ebi.jmzidml.model.mzidml.CvParam) {
+                                        uk.ac.ebi.jmzidml.model.mzidml.CvParam cvParam = (uk.ac.ebi.jmzidml.model.mzidml.CvParam) abstractParam;
+                                        if (cvParam.getAccession() != null) {
+                                            CvParam cv = new CvParam(cvParam.getCvRef(),
+                                                    cvParam.getAccession(), cvParam.getName(), cvParam.getValue());
+                                            if (cv.getAccession().equalsIgnoreCase("PRIDE:0000511")) {
+                                                psmAttributes.add(cv);
+                                                if (cv.getValue().equalsIgnoreCase("true"))
+                                                    submitterValid = true;
                                             }
+                                            properties.add(cv);
+                                        }
+                                    }
+                                }
+                            }
 
-                                            Set<CvParam> properties = new HashSet<>();
-                                            Set<CvParam> psmAttributes = new HashSet<>();
+                            properties.add(new CvParam(CvTermReference.MS_PIA_PEPTIDE_QVALUE.getCvLabel(),
+                                    CvTermReference.MS_PIA_PEPTIDE_QVALUE.getAccession(),
+                                    CvTermReference.MS_PIA_PEPTIDE_QVALUE.getName(),
+                                    String.valueOf(peptide.getQValue())));
+                            System.out.print(peptide.getQValue());
 
-                                            for (ScoreModelEnum scoreModel : ScoreModelEnum.values()) {
-                                                Double scoreValue = psm.getScore(scoreModel.getShortName());
-                                                if (scoreValue != null && !scoreValue.isNaN()) {
-                                                    for (CvTermReference ref : CvTermReference.values()) {
-                                                        if (ref.getAccession().equalsIgnoreCase(scoreModel.getCvAccession())) {
-                                                            CvParam cv = new CvParam(ref.getCvLabel(), ref.getAccession(),
-                                                                    ref.getName(), String.valueOf(scoreValue));
-                                                            properties.add(cv);
-                                                            if (ref.getAccession().equalsIgnoreCase("MS:1002355")) {
-                                                                CvParam bestSearchEngine = new CvParam(cv.getCvLabel(), cv.getAccession(), cv.getName(), cv.getValue());
-                                                                psmAttributes.add(bestSearchEngine);
-                                                            }
+                            double retentionTime = Double.NaN;
+                            if (psm.getRetentionTime() != null)
+                                retentionTime = psm.getRetentionTime();
 
-                                                        }
+                            List<Double> ptmMasses = peptide.getModifications().entrySet()
+                                    .stream().map(x -> x.getValue().getMass()).collect(Collectors.toList());
+                            double deltaMass = MoleculeUtilities
+                                    .calculateDeltaMz(peptide.getSequence(),
+                                            spectrum.getMassToCharge(),
+                                            spectrum.getCharge(),
+                                            ptmMasses);
 
-                                                    }
-                                                }
-                                            }
+                            log.info("Delta Mass -- " + deltaMass);
 
-                                            // Capturing additional parameters provided by the user.
-                                            boolean submitterValid = false;
-                                            for (AbstractParam abstractParam : spectrum.getParams()) {
-                                                if (abstractParam != null) {
-                                                    if (abstractParam instanceof uk.ac.ebi.jmzidml.model.mzidml.CvParam) {
-                                                        uk.ac.ebi.jmzidml.model.mzidml.CvParam cvParam = (uk.ac.ebi.jmzidml.model.mzidml.CvParam) abstractParam;
-                                                        if (cvParam.getAccession() != null) {
-                                                            CvParam cv = new CvParam(cvParam.getCvRef(),
-                                                                    cvParam.getAccession(), cvParam.getName(), cvParam.getValue());
-                                                            if (cv.getAccession().equalsIgnoreCase("PRIDE:0000511")) {
-                                                                psmAttributes.add(cv);
-                                                                if (cv.getValue().equalsIgnoreCase("true"))
-                                                                    submitterValid = true;
-                                                            }
-                                                            properties.add(cv);
-                                                        }
-                                                    }
-                                                }
-                                            }
+                            if (deltaMass > 0.9) {
+                                errorDeltaPSM.set(errorDeltaPSM.get() + 1);
+                            }
+                            properties.add(new CvParam(CvTermReference.MS_DELTA_MASS.getCvLabel(),
+                                    CvTermReference.MS_DELTA_MASS.getAccession(),
+                                    CvTermReference.MS_DELTA_MASS.getName(),
+                                    String.valueOf(deltaMass))
+                            );
 
-                                            properties.add(new CvParam(CvTermReference.MS_PIA_PEPTIDE_QVALUE.getCvLabel(),
-                                                    CvTermReference.MS_PIA_PEPTIDE_QVALUE.getAccession(),
-                                                    CvTermReference.MS_PIA_PEPTIDE_QVALUE.getName(),
-                                                    String.valueOf(peptide.getQValue())));
-                                            System.out.print(peptide.getQValue());
+                            List<IdentifiedModification> mods = new ArrayList<>();
+                            if (psm.getModifications() != null && psm.getModifications().size() > 0)
+                                mods = PrideAnalysisAssayService.this.convertPeptideModifications(psm.getModifications()).stream().map(x -> {
 
-                                            double retentionTime = Double.NaN;
-                                            if (psm.getRetentionTime() != null)
-                                                retentionTime = psm.getRetentionTime();
+                                    CvParam neutralLoss = null;
+                                    if (x.getNeutralLoss() != null)
+                                        neutralLoss = new CvParam(x.getNeutralLoss().getCvLabel(),
+                                                x.getNeutralLoss().getAccession(),
+                                                x.getNeutralLoss().getName(), x.getNeutralLoss().getValue());
 
-                                            List<Double> ptmMasses = peptide.getModifications().entrySet()
-                                                    .stream().map(x -> x.getValue().getMass()).collect(Collectors.toList());
-                                            double deltaMass = MoleculeUtilities
-                                                    .calculateDeltaMz(peptide.getSequence(),
-                                                            spectrum.getMassToCharge(),
-                                                            spectrum.getCharge(),
-                                                            ptmMasses);
+                                    List<Tuple<Integer, Set<? extends CvParamProvider>>> positionMap = new ArrayList<>();
+                                    if (x.getPositionMap() != null && x.getPositionMap().size() > 0)
+                                        positionMap = x.getPositionMap().stream()
+                                                .map(y -> new Tuple<Integer, Set<? extends CvParamProvider>>(y.getKey(),
+                                                        y.getValue().stream()
+                                                                .map(z -> new CvParam(z.getCvLabel(),
+                                                                        z.getAccession(), z.getName(), z.getValue()))
+                                                                .collect(Collectors.toSet())))
+                                                .collect(Collectors.toList());
 
-                                            log.info("Delta Mass -- " + deltaMass);
+                                    CvParam modCv = null;
+                                    if (x.getModificationCvTerm() != null)
+                                        modCv = new CvParam(x.getModificationCvTerm().getCvLabel(),
+                                                x.getModificationCvTerm().getAccession(),
+                                                x.getModificationCvTerm().getName(),
+                                                x.getModificationCvTerm().getValue());
 
-                                            if (deltaMass > 0.9) {
-                                                errorDeltaPSM.set(errorDeltaPSM.get() + 1);
-                                            }
-                                            properties.add(new CvParam(CvTermReference.MS_DELTA_MASS.getCvLabel(),
-                                                    CvTermReference.MS_DELTA_MASS.getAccession(),
-                                                    CvTermReference.MS_DELTA_MASS.getName(),
-                                                    String.valueOf(deltaMass))
-                                            );
+                                    Set<CvParamProvider> modProperties = new HashSet<>();
 
-                                            List<IdentifiedModification> mods = new ArrayList<>();
-                                            if (psm.getModifications() != null && psm.getModifications().size() > 0)
-                                                mods = PrideAnalysisAssayService.this.convertPeptideModifications(psm.getModifications()).stream().map(x -> {
+                                    return new IdentifiedModification(neutralLoss, positionMap, modCv, modProperties);
+                                }).collect(Collectors.toList());
 
-                                                    CvParam neutralLoss = null;
-                                                    if (x.getNeutralLoss() != null)
-                                                        neutralLoss = new CvParam(x.getNeutralLoss().getCvLabel(),
-                                                                x.getNeutralLoss().getAccession(),
-                                                                x.getNeutralLoss().getName(), x.getNeutralLoss().getValue());
+                            Set<CvParam> validationMethods = (Set<CvParam>) assayObjects.get("validationMethods");
 
-                                                    List<Tuple<Integer, Set<? extends CvParamProvider>>> positionMap = new ArrayList<>();
-                                                    if (x.getPositionMap() != null && x.getPositionMap().size() > 0)
-                                                        positionMap = x.getPositionMap().stream()
-                                                                .map(y -> new Tuple<Integer, Set<? extends CvParamProvider>>(y.getKey(),
-                                                                        y.getValue().stream()
-                                                                                .map(z -> new CvParam(z.getCvLabel(),
-                                                                                        z.getAccession(), z.getName(), z.getValue()))
-                                                                                .collect(Collectors.toSet())))
-                                                                .collect(Collectors.toList());
+                            boolean isValid = (boolean) assayObjects.get("isValid");
 
-                                                    CvParam modCv = null;
-                                                    if (x.getModificationCvTerm() != null)
-                                                        modCv = new CvParam(x.getModificationCvTerm().getCvLabel(),
-                                                                x.getModificationCvTerm().getAccession(),
-                                                                x.getModificationCvTerm().getName(),
-                                                                x.getModificationCvTerm().getValue());
+                            int misssedCleavages = ((ReportPSM) psm).getMissedCleavages();
+                            if (misssedCleavages == -1){
+                                misssedCleavages = uk.ac.ebi.pride.utilities.mol.MoleculeUtilities.calcMissedCleavages(psm.getSequence());
+                            }
 
-                                                    Set<CvParamProvider> modProperties = new HashSet<>();
+                            PSMProvider archivePSM = ArchiveSpectrum
+                                    .builder()
+                                    .projectAccession(projectAccession)
+                                    .assayAccession(mongoPrideAssay.getAccession())
+                                    .peptideSequence(psm.getSequence())
+                                    .isDecoy(psm.getIsDecoy())
+                                    .retentionTime(retentionTime)
+                                    .msLevel(fileSpectrum.getMsLevel())
+                                    .precursorCharge(fileSpectrum.getPrecursorCharge())
+                                    .masses(masses)
+                                    .numPeaks(intensities.length)
+                                    .intensities(intensities)
+                                    .properties(properties)
+                                    .spectrumFile(spectrumFile)
+                                    .modifications(mods)
+                                    .precursorMz(fileSpectrum.getPrecursorMZ())
+                                    .usi(usi)
+                                    .spectrumFile(spectrumFile)
+                                    .isValid(isValid)
+                                    .missedCleavages(misssedCleavages)
+                                    .qualityEstimationMethods(validationMethods.stream()
+                                            .map(x -> new CvParam(x.getCvLabel(),
+                                                    x.getAccession(), x.getName(), x.getValue()))
+                                            .collect(Collectors.toSet()))
+                                    .build();
 
-                                                    return new IdentifiedModification(neutralLoss, positionMap, modCv, modProperties);
-                                                }).collect(Collectors.toList());
+                            PrideMongoPsmSummaryEvidence psmMongo = PrideMongoPsmSummaryEvidence
+                                    .builder()
+                                    .usi(usi)
+                                    .spectraUsi(spectraUsi)
+                                    .peptideSequence(psm.getSequence())
+                                    .assayAccession(mongoPrideAssay.getAccession())
+                                    .isDecoy(psm.getIsDecoy())
+                                    .charge(psm.getCharge())
+                                    .isValid(isValid)
+                                    .projectAccession(projectAccession)
+                                    .fileName(fileName)
+                                    .additionalAttributes(psmAttributes)
+                                    .precursorMass(psm.getMassToCharge())
+                                    .modifiedPeptideSequence(SubmissionPipelineConstants
+                                            .encodePeptide(psm.getSequence(), psm.getModifications()))
+                                    .build();
 
-                                            Set<CvParam> validationMethods = (Set<CvParam>) assayObjects.get("validationMethods");
-
-                                            boolean isValid = (boolean) assayObjects.get("isValid");
-
-                                            int misssedCleavages = ((ReportPSM) psm).getMissedCleavages();
-                                            if (misssedCleavages == -1){
-                                                misssedCleavages = uk.ac.ebi.pride.utilities.mol.MoleculeUtilities.calcMissedCleavages(psm.getSequence());
-                                            }
-
-                                            PSMProvider archivePSM = ArchiveSpectrum
-                                                    .builder()
-                                                    .projectAccession(projectAccession)
-                                                    .assayAccession(mongoPrideAssay.getAccession())
-                                                    .peptideSequence(psm.getSequence())
-                                                    .isDecoy(psm.getIsDecoy())
-                                                    .retentionTime(retentionTime)
-                                                    .msLevel(fileSpectrum.getMsLevel())
-                                                    .precursorCharge(fileSpectrum.getPrecursorCharge())
-                                                    .masses(masses)
-                                                    .numPeaks(intensities.length)
-                                                    .intensities(intensities)
-                                                    .properties(properties)
-                                                    .spectrumFile(spectrumFile)
-                                                    .modifications(mods)
-                                                    .precursorMz(fileSpectrum.getPrecursorMZ())
-                                                    .usi(usi)
-                                                    .spectrumFile(spectrumFile)
-                                                    .isValid(isValid)
-                                                    .missedCleavages(misssedCleavages)
-                                                    .qualityEstimationMethods(validationMethods.stream()
-                                                            .map(x -> new CvParam(x.getCvLabel(),
-                                                                    x.getAccession(), x.getName(), x.getValue()))
-                                                            .collect(Collectors.toSet()))
-                                                    .build();
-
-                                            PrideMongoPsmSummaryEvidence psmMongo = PrideMongoPsmSummaryEvidence
-                                                    .builder()
-                                                    .usi(usi)
-                                                    .spectraUsi(spectraUsi)
-                                                    .peptideSequence(psm.getSequence())
-                                                    .assayAccession(mongoPrideAssay.getAccession())
-                                                    .isDecoy(psm.getIsDecoy())
-                                                    .charge(psm.getCharge())
-                                                    .isValid(isValid)
-                                                    .projectAccession(projectAccession)
-                                                    .fileName(fileName)
-                                                    .additionalAttributes(psmAttributes)
-                                                    .precursorMass(psm.getMassToCharge())
-                                                    .modifiedPeptideSequence(SubmissionPipelineConstants
-                                                            .encodePeptide(psm.getSequence(), psm.getModifications()))
-                                                    .build();
-
-                                            if (isValid || submitterValid) {
-                                                try {
-                                                    BackupUtil.write(archivePSM, (BufferedWriter) assayObjects.get("archiveSpectrumBufferedWriter"));
-                                                    BackupUtil.write(psmMongo, (BufferedWriter) assayObjects.get("psmSummaryEvidenceBufferedWriter"));
+                            if (isValid || submitterValid) {
+                                try {
+                                    BackupUtil.write(archivePSM, (BufferedWriter) assayObjects.get("archiveSpectrumBufferedWriter"));
+                                    BackupUtil.write(psmMongo, (BufferedWriter) assayObjects.get("psmSummaryEvidenceBufferedWriter"));
 //                                                    moleculesService.insertPsmSummaryEvidence(psmMongo);
-                                                } catch (DuplicateKeyException ex) {
+                                } catch (DuplicateKeyException ex) {
 //                                                    moleculesService.savePsmSummaryEvidence(psmMongo);
-                                                    log.debug("The psm evidence was already in the database -- " + psmMongo.getUsi());
-                                                }
+                                    log.debug("The psm evidence was already in the database -- " + psmMongo.getUsi());
+                                }
 
 //                                                pushToS3(archivePSM.getUsi(), archivePSM, 0);
 
-                                                Map<Long, List<PeptideSpectrumOverview>> peptideUsi = new HashMap<>();
+                                Map<Long, List<PeptideSpectrumOverview>> peptideUsi = new HashMap<>();
 
-                                                List<PeptideSpectrumOverview> usis = new ArrayList<>();
-                                                if (peptideUsi.containsKey(peptide.getPeptide().getID())) {
-                                                    usis = peptideUsi.get(peptide.getPeptide().getID());
-                                                }
-                                                usis.add(new PeptideSpectrumOverview(psm.getCharge(), psm.getMassToCharge(), usi));
-                                                peptideUsi.put(peptide.getPeptide().getID(), usis);
-                                                assayObjects.put("peptideUsi", peptideUsi);
-                                            }
-
-                                        } catch (Exception e) {
-                                            log.error(e.getMessage(), e);
-                                            if (!(e instanceof JMzReaderException))
-                                                throw new RuntimeException(e);
-                                        }
-                                    }));
+                                List<PeptideSpectrumOverview> usis = new ArrayList<>();
+                                if (peptideUsi.containsKey(peptide.getPeptide().getID())) {
+                                    usis = peptideUsi.get(peptide.getPeptide().getID());
                                 }
-                                log.info("Delta Mass Rate -- " + (errorDeltaPSM.get() / totalPSM.get()));
+                                usis.add(new PeptideSpectrumOverview(psm.getCharge(), psm.getMassToCharge(), usi));
+                                peptideUsi.put(peptide.getPeptide().getID(), usis);
+                                assayObjects.put("peptideUsi", peptideUsi);
                             }
 
+                        } catch (Exception e) {
+                            log.error(e.getMessage(), e);
+                            if (!(e instanceof JMzReaderException))
+                                throw new RuntimeException(e);
                         }
+                    }));
+                }
+                log.info("Delta Mass Rate -- " + (errorDeltaPSM.get() / totalPSM.get()));
+            }
 
-                        taskTimeMap.put(SubmissionPipelineConstants.PrideArchiveStepNames.PRIDE_ARCHIVE_MONGODB_SPECTRUM_UPDATE.getName(),
-                                System.currentTimeMillis() - initSpectraStep);
+        }
 
-                        return RepeatStatus.FINISHED;
-                    }
-                }).build();
+        taskTimeMap.put(SubmissionPipelineConstants.PrideArchiveStepNames.PRIDE_ARCHIVE_MONGODB_SPECTRUM_UPDATE.getName(),
+                System.currentTimeMillis() - initSpectraStep);
+
+
     }
 
 

@@ -6,18 +6,25 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.ExitCodeGenerator;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration;
+import org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration;
+import org.springframework.boot.autoconfigure.mongo.embedded.EmbeddedMongoAutoConfiguration;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.ComponentScan;
 import uk.ac.ebi.pride.archive.pipeline.services.ws.PrideArchiveWebService;
+import uk.ac.ebi.pride.mongodb.configs.ArchiveMongoConfig;
+import uk.ac.ebi.pride.mongodb.configs.MoleculesMongoConfig;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
 @Slf4j
-@SpringBootApplication
+@SpringBootApplication(exclude={MongoAutoConfiguration.class, MongoDataAutoConfiguration.class})
 @ComponentScan("uk.ac.ebi.pride.archive.pipeline.services")
 public class ArchiveMoleculesIndexer implements ApplicationRunner {
 
@@ -66,7 +73,6 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
         args.getOptionNames().forEach(optionName -> {
             System.out.println(optionName + "=" + args.getOptionValues(optionName));
         });
-        SpringApplication.exit(context);
 
     }
 
