@@ -64,6 +64,16 @@ public class PrideArchiveWebService {
         return files;
     }
 
+    /**
+     * Write the result files from a specific project into a tab-delimited file including the following properties:
+     *  - Name file
+     *  - date of publication
+     *  - accession of the file
+     *  - ftp location
+     *
+     * @param projectAccession
+     * @param fileOutput
+     */
     public void writeResultForProjectAccession(String projectAccession, String fileOutput){
         try {
             Optional<PrideProject> projectOption = findByAccession(projectAccession);
