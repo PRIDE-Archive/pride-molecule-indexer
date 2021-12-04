@@ -120,6 +120,13 @@ public class PrideAnalysisAssayService {
         return piaModellerService;
     }
 
+    /**
+     * Write the Related files to one Result file
+     * @param projectAccession Project Accession
+     * @param resultFiles Result files to be analyzed
+     * @param outputFile Output file to write the relation
+     * @throws IOException
+     */
     public void writeRelatedSpectraFiles(String projectAccession, List<String> resultFiles, String outputFile)
             throws IOException {
 
@@ -133,7 +140,7 @@ public class PrideAnalysisAssayService {
             throw new IOException("Not files found in the PRIDE WS for accession: " + projectAccession);
         }
 
-        List<Triple<String, PrideFile, SubmissionPipelineUtils.FileType>> filesRelated = new ArrayList<>();
+        List<Triple<Tuple<String, String>, PrideFile, SubmissionPipelineUtils.FileType>> filesRelated = new ArrayList<>();
 
         resultFiles.stream().forEach( resultFile ->{
             SubmissionPipelineUtils.FileType fileType = SubmissionPipelineUtils.FileType.getFileTypeFromFileName(resultFile);
@@ -144,7 +151,7 @@ public class PrideAnalysisAssayService {
                                 fileType, 1.0, 1.0);
                     Map<String, SpectraData> spectraDataList = modeller.getSpectraData();
                     if(fileType == SubmissionPipelineUtils.FileType.PRIDE)
-                        filesRelated.add(new Triple<>(resultFile, null, null));
+                        filesRelated.add(new Triple<>(new Tuple<>(resultFile, null), null, null));
                     else{
                         filesRelated.addAll(getFilesRelatedToResultFile(resultFile, spectraDataList, projectFiles));
                     }
@@ -165,14 +172,14 @@ public class PrideAnalysisAssayService {
             String date = simpleDateFormat.format(projectOption.get().getPublicationDate());
             try (PrintWriter writer = new PrintWriter(
                     Files.newBufferedWriter(Paths.get(outputFile)))) {
-                    writer.printf("%s\t%s\t%s\t%s\t%s", "resultFile", "date", "fileType", "filename", "ftp");
+                    writer.printf("%s\t%s\t%s\t%s\t%s\t%s", "resultFile", "date", "referenceFile", "fileType", "ftpName", "ftp");
                     writer.println();
                     filesRelated.forEach(x -> {
                         if(x.getSecond() != null){
                             Optional<CvParamProvider> location = x.getSecond().getPublicFileLocations().stream().filter(y -> Objects.equals(y.getAccession(), "PRIDE:0000469")).findFirst();
-                            writer.printf("%s\t%s\t%s\t%s\t%s", x.getFirst(), date, x.getThird().name(), x.getSecond().getFileName(), location.get().getValue());
+                            writer.printf("%s\t%s\t%s\t%s\t%s\t%s", x.getFirst().getKey(), date, x.getFirst().getValue(), x.getThird().name(), x.getSecond().getFileName(), location.get().getValue());
                         }else{
-                            writer.printf("%s\t%s\t%s\t%s\t%s", x.getFirst(), date, null, null, null);
+                            writer.printf("%s\t%s\t%s\t%s\t%s\t%s", x.getFirst().getKey(), date, null, null, null, null);
                         }
                         writer.println();
                     });
@@ -191,10 +198,10 @@ public class PrideAnalysisAssayService {
      * @param projectFiles Project Files from the PRIDE WS
      * @return Triple
      */
-    private List<Triple<String, PrideFile, SubmissionPipelineUtils.FileType>> getFilesRelatedToResultFile(String resultFile,
+    private List<Triple<Tuple<String, String>, PrideFile, SubmissionPipelineUtils.FileType>> getFilesRelatedToResultFile(String resultFile,
                                                                                                        Map<String, SpectraData> spectraDataList,
                                                                                                        List<PrideFile> projectFiles) {
-        List<Triple<String, PrideFile, SubmissionPipelineUtils.FileType>> finalFilesFiltered = projectFiles.stream().map(x -> {
+        List<Triple<Tuple<String, String>, PrideFile, SubmissionPipelineUtils.FileType>> finalFilesFiltered = projectFiles.stream().map(x -> {
             boolean isNotFile = false;
             for( SpectraData fileInResult: spectraDataList.values()){
                 String location = fileInResult.getLocation();
@@ -203,7 +210,7 @@ public class PrideAnalysisAssayService {
                     String file = FilenameUtils.getName(location);
                     if (x.getFileName().contains(file)){
                         SubmissionPipelineUtils.FileType fileType = SubmissionPipelineUtils.FileType.getFileTypeFromFileName(file);
-                        return new Triple<String, PrideFile, SubmissionPipelineUtils.FileType>(resultFile, x, fileType);
+                        return new Triple<>(new Tuple<>(resultFile, file), x, fileType);
                     }
                 }
             }
