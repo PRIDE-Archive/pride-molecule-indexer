@@ -1,4 +1,4 @@
-package uk.ac.ebi.pride.archive.pipeline.services.ws;
+package uk.ac.ebi.pride.archive.indexer.services.ws;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;

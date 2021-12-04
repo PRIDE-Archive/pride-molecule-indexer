@@ -1,4 +1,4 @@
-package uk.ac.ebi.pride.archive.pipeline.utility;
+package uk.ac.ebi.pride.archive.indexer.utility;
 
 import de.mpc.pia.intermediate.Modification;
 import de.mpc.pia.modeller.psm.ReportPSM;
@@ -21,7 +21,16 @@ import java.util.zip.GZIPInputStream;
  *
  * @author ypriverol
  */
-public class SubmissionPipelineConstants {
+public class SubmissionPipelineUtils {
+
+    /**
+     * This method returns true if the filename is extension is a compression file .gz or .zip
+     * @param resultFile Result file
+     * @return Boolean
+     */
+    public static boolean isCompressedByExtension(String resultFile) {
+        return resultFile.endsWith(Compress_Type.GZIP.extension) || resultFile.endsWith(Compress_Type.ZIP.extension);
+    }
 
     /**
      * Supported id format used in the spectrum file.
@@ -55,7 +64,12 @@ public class SubmissionPipelineConstants {
         PKL,
         APL;
 
-        public static FileType getFileTypeFromPRIDEFileName(String filename) {
+        /**
+         * This method returns the {@link FileType} of a result file using the name of the file
+         * @param filename file name
+         * @return FileType
+         */
+        public static FileType getFileTypeFromFileName(String filename) {
             filename = returnUnCompressPath(filename.toLowerCase());
             if (filename.toLowerCase().endsWith("mzid") || filename.toLowerCase().endsWith("mzidentml")) {
                 return MZID;
@@ -89,7 +103,7 @@ public class SubmissionPipelineConstants {
                 if (specFileFormat.getCvParam().getAccession().equals("MS:1001466")) fileType = MS2;
                 if (specFileFormat.getCvParam().getAccession().equals("MS:1002600")) fileType = PRIDE;
             }else{
-                fileType = getFileTypeFromPRIDEFileName(spectraData.getLocation());
+                fileType = getFileTypeFromFileName(spectraData.getLocation());
             }
             return fileType;
         }
@@ -110,272 +124,15 @@ public class SubmissionPipelineConstants {
         }
     }
 
-    public enum SubmissionsType {
-        ALL, PUBLIC, PRIVATE
-    }
-
-    /**
-     * NOTE: there are some external scripts calling individual jobs. If you are changing job
-     * names, please change the those scripts as well
-     * Eg:
-     * /nfs/pride/work/archive/revised-archive-submission-scripts/
-     */
-    public enum PrideArchiveJobNames {
-        PRIDE_ARCHIVE_SOLR_MASTER_INIT("createPrideArchiveSolrCloudCollectionJob",
-                "This command will create a new Collection of PRIDE Archive in SolrCloud Production."),
-
-        PRIDE_ARCHIVE_ORACLE_MONGODB_SYNC("syncOracleToMongoProjectsJob",
-                "This command will sync the Oracle Database data into MongoDB data"),
-
-        PRIDE_ARCHIVE_SDRF_ORACLE_MONGODB_FILE_SYNC("syncSdrfFilesToMongoAndSolrJob",
-                "This command will sync the Oracle Database sdrf files into MongoDB data"),
-
-        PRIDE_ARCHIVE_MONGODB_SOLRCLOUD_SYNC_HX("syncMongoProjectToSolrCloudJob",
-                "This command sync all the projects from MongoDB to Solr Cloud HX"),
-
-        PRIDE_ARCHIVE_MONGODB_SOLRCLOUD_SYNC_HH("syncMongoProjectToSolrCloudJobHH",
-                "This command sync all the projects from MongoDB to Solr Cloud HH"),
-
-        PRIDE_ARCHIVE_RESET_SUBMISSION_MONGODB("resetMongoProjectsJob",
-                "This command will reset the submission data from MongoDB"),
-
-        PRIDE_ARCHIVE_RESET_SUBMISSION_SOLR("resetSolrProjectsJob",
-                "This command will reset the submission data from Solr"),
-
-        PRIDE_ARCHIVE_MONGODB_ANNOTATE_PROJECTS_COUNTRY("annotateProjectsWithCountryJob",
-                "This job take a configuration file from github and annotate the Projects with the Country"),
-
-        PRIDE_ARCHIVE_SUBMISSION_STATS("computeSubmissionStatsJob",
-                "This command compute/estimate the statistics for PRIDE Submissions"),
-
-        PRIDE_ARCHIVE_MONGODB_ASSAY_SYNC("importProjectAssaysInformationJob",
-                "This command sync the Assay information from Oracle to MongoDB"),
-
-        PRIDE_ARCHIVE_MONGODB_ASSAY_ANALYSIS("analyzeAssayInformationJob",
-                "This command analyze the information of an assay"),
-
-        PRIDE_ARCHIVE_MONGODB_REANALYSIS_ASSAY_ANALYSIS("reanalysisAnalyzeAssayInformationJob",
-                "This command analyze the information of an reanalysis assay"),
-
-        PRIDE_ARCHIVE_SOLR_INDEX_PEPTIDE_PROTEIN("solrIndexPeptideProteinJob",
-                "This command indexes peptides & proteins to Solr"),
-
-        PRIDE_ARCHIVE_SOLR_SYNC_MISSING_FILES("solrSyncMissingFilesJobBean",
-                "This step update the missing files"),
-
-        PRIDE_ARCHIVE_SYNC_MISSING_PROJECTS_SOLR("syncMissingProjectsToSolrJob",
-                "This command indexes peptides & proteins to Solr"),
-
-        PRIDE_ARCHIVE_MONGO_CHECKSUM("mongoChecksumJobBean",
-                "Add checksum info to mongo files"),
-
-        PRIDE_ANALYZE_ASSAY_FROM_BACKUP_FILES("prideAnalyzeAssayFromBackupFilesJob",
-                "Restore data from backup files"),
-
-        PRIDE_USERS_AAP_SYNC("PrideUsersAAPSync", "This job will sync the users from PRIDE to AAP"),
-
-        PRIDE_ARCHIVE_DATA_USAGE("calculatePrideArchiveDataUsage", "This job will calculate and collate PRIDE Archive data usage"),
-
-        PRIDE_ARCHIVE_SYNC_MISSING_PROJECTS_ORACLE_MONGODB("syncMissingProjectsOracleToMongoJob", "This job will sync missing projects from Oracle into MongoDB"),
-
-        PRIDE_ARCHIVE_SYNC_MISSING_PROJECTS_ORACLE_PC("syncMissingProjectsOracleToPXJob", "This job will sync missing projects from Oracle into ProteomeXchange"),
-
-        PRIDE_ARCHIVE_MONGODB_MOLECULE_STATS("moleculeStatsJob", "This job compute some basic statistics across the entire PRIDE Archive"),
-
-        PRIDE_ARCHIVE_REANALYSIS_INFO_UPDATE("syncReanalysisDatasetsToMongoDBJob", "Updates the re-analysis information to the MongoDB"),
-
-        PRIDE_PROJECT_METADATA_UPDATE("projectMetadataUpdateJob", "Project metadata can be updated in several resources"),
-
-        PRIDE_ARCHIVE_ASSAY_ANALYSIS_ISSUES("analyzeAssayIssueJob", "Detects the issues in Assay Analysis"),
-
-        PRIDER_EBEYE_XML_GENERATION("priderEbeyeXmlGenerationJob", "This job is used to generate ebeye prider xml");
-
-        String name;
-        String message;
-
-        PrideArchiveJobNames(String name, String message) {
-            this.name = name;
-            this.message = message;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public String getMessage() {
-            return message;
-        }
-
-    }
-
-    public enum PrideArchiveStepNames {
-
-        /**
-         * PRIDE SolrCloud Creation Tasks
-         **/
-
-        PRIDE_ARCHIVE_SOLR_CLOUD_DELETE_COLLECTION("deletePrideArchiveCollectionSolrCloudStep",
-                "This Step will delete the collection PRIDE Archive in SolrCloud Production."),
-
-        PRIDE_ARCHIVE_SOLR_CLOUD_CREATE_COLLECTION("createPrideArchiveCollectionSolrCloudStep",
-                "This Step will create the collection PRIDE Archive in SolrCloud Production."),
-
-        PRIDE_ARCHIVE_SOLR_CLOUD_REFINE_COLLECTION("refineArchiveCollectionSolrCloudStep",
-                "This Step will refine the collection PRIDE Archive in SolrCloud Production."),
-
-        /**
-         * PRIDE Jobs and Steps to estimate the stats
-         */
-        PRIDE_ARCHIVE_SUBMISSION_STATS_YEAR("estimateSubmissionByYearStep",
-                "This Step will estimate the number of submissions per year"),
-
-        PRIDE_ARCHIVE_SUBMISSION_STATS_MONTH("estimateSubmissionByMonthStep",
-                "This Step will estimate the number of submissions per year"),
-
-        PRIDE_ARCHIVE_SUBMISSION_STATS_INSTRUMENT("estimateInstrumentsCountStep",
-                "This step computes the number of submissions per instrument"),
-
-        PRIDE_ARCHIVE_SUBMISSION_STATS_ORGANISM("estimateOrganismCountStep",
-                "This step computes the number of submissions per organism"),
-
-        PRIDE_ARCHIVE_SUBMISSION_STATS_ORGANISM_PART("estimateOrganismPartCountStep",
-                "This step computes the number of submissions per organism part"),
-
-        PRIDE_ARCHIVE_SUBMISSION_STATS_DISEASES("estimateDiseasesCountStep",
-                "This step computes the number of submissions per organism"),
-
-        PRIDE_ARCHIVE_SUBMISSION_STATS_MODIFICATIONS("estimateModificationCountStep",
-                "This step computes the number of submissions per modifications"),
-
-        PRIDE_ARCHIVE_SYNC_FILES_TO_PROJECT_SOLR("syncFilesToSolrProjectStep",
-                "This step sync all the files that belong to a project to solr project, for searching"),
-
-        PRIDE_ARCHIVE_SUBMISSION_STATS_COUNTRY("estimateCountryCountStep",
-                "Number of submissions per Country of origin"),
-
-        PRIDE_ARCHIVE_SUBMISSION_STATS_CATEGORY("estimateSubmissionByCategoryStep",
-                "Number of submissions per Category - Organism, Organism Part"),
-
-        PRIDE_ARCHIVE_MONGODB_ANNOTATE_PROJECTS_COUNTRY("annotateProjectsWithCountryStep",
-                "This job take a configuration file from github and annotate the Projects with the Country"),
-
-        /**
-         * Re-analysis Data
-         */
-        PRIDE_ARCHIVE_UPDATE_REANALYSIS_DATA("updateReanalysisDatasetsStep",
-                "This job reads re-analysis data from TSV file and update the MongoDB collection"),
-
-        /*AAP user sync*/
-        PRIDE_USERS_AAP_SYNC("PrideUsersAAPSyncStep",
-                "This step will sync pride users into AAP DB"),
-
-        PRIDE_UPDATE_PROJECT_METADATA("PrideUpdateProjectMetadataStep",
-                "This step will update project metadata"),
-
-        PRIDE_DELETE_TEMP_SUMMARY_FILE("DeleteTempSubmissionFileJob",
-                "Delete temparirily saved submission.px file to update project metadata"),
-
-
-        /**
-         * PRIDE Data Sync from Oracle to MongoDB
-         **/
-
-        PRIDE_ARCHIVE_ORACLE_TO_MONGO_SYNC("syncProjectOracleToMongoDB",
-                "This Step will sync the Oracle Database data into MongoDB data"),
-
-        PRIDE_ARCHIVE_MISSING_PROJ_ORACLE_TO_MONGO_SYNC("syncMissingProjectOracleToMongoDB",
-                "This Step will sync missing projects from Oracle into MongoDB"),
-
-        PRIDE_ARCHIVE_MISSING_PROJ_ORACLE_TO_PC_SYNC("syncMissingProjectsOracleToPXStep",
-                "This Step will sync missing projects from Oracle into ProteomeXchange"),
-
-        PRIDE_ARCHIVE_CLEAN_SOLR_HX("cleanSolrCloudStep",
-                "Clean all the documents in SolrCloud Master HX"),
-
-        PRIDE_ARCHIVE_CLEAN_SOLR_HH("cleanSolrCloudStep",
-                "Clean all the documents in SolrCloud Master HH"),
-
-        PRIDE_ARCHIVE_ORACLE_TO_MONGO_SYNC_FILES("syncFileInformationToMongoDBStep",
-                "This Step will sync all the Files in the Oracle data into MongoDB data"),
-
-        PRIDE_ARCHIVE_ORACLE_TO_MONGO_SYNC_SDRF_FILES("syncSdrfFileInformationToMongoDBStep",
-                "This Step will sync all the Sdrf Files in the Oracle data into MongoDB data"),
-
-        PRIDE_ARCHIVE_RESET_SUBMISSION_MONGO("resetProjectMongoDBStep",
-                "This Step will reset the project data in MongoDB"),
-
-        PRIDE_ARCHIVE_RESET_FILES_SUBMISSION_MONGO("resetFileInformationMongoDBStep",
-                "This Step will reset the files data in MongoDB"),
-
-        PRIDE_ARCHIVE_RESET_SUBMISSION_SOLR("resetProjectSolrStep",
-                "This Step will reset the project data in Solr"),
-
-        PRIDE_ARCHIVE_SYNC_ASSAY_FILE("PrideArchiveAnnotateFileToAssayStep",
-                "This Step will important the file information for each Project to MongoDB"),
-
-        PRIDE_ARCHIVE_SYNC_ASSAY_TO_MONGO("importProjectAssayInformationStep",
-                "This Step will import the assay information from Oracle to MongoDB"),
-
-        PRIDE_ARCHIVE_MONGODB_ASSAY_INFERENCE("analyzeAssayInformationStep",
-                "This step performns the assay inference"),
-
-        PRIDE_ARCHIVE_MONGODB_ASSAY_UPDATE("updateAssayInformationStep",
-                "This step performs the assay information update"),
-
-        PRIDE_ARCHIVE_MONGODB_SPECTRUM_UPDATE("indexSpectraStep",
-                "This step read the spectrum information from the file and insert it into mongoDB and S3"),
-
-        PRIDE_ARCHIVE_MONGODB_PROTEIN_UPDATE("proteinPeptideIndexStep",
-                "This step update the protein and peptide information"),
-
-        PRIDE_ARCHIVE_SOLR_INDEX_PEPTIDE_PROTEIN("solrIndexProteinPeptideIndexStep",
-                "This step update the protein and peptide information"),
-
-        PRIDE_ARCHIVE_SOLR_INDEX_PEPTIDE_PROTEIN_FROM_FILE("solrIndexPeptideProteinFromFile",
-                "This command indexes peptides & proteins to Solr"),
-
-        PRIDE_ARCHIVE_SOLR_SYNC_MISSING_FILES("solrSyncMissingFilesStep",
-                "This step update the missing files"),
-
-        PRIDE_ARCHIVE_SYNC_MISSING_PROJECTS_SOLR("solrSyncMissingProjectsStep",
-                "This step syncs missing projects to solr"),
-
-        PRIDE_ARCHIVE_MONGO_CHECKSUM("populateMongoChecksumStep",
-                "Add checksum info to mongo files"),
-
-        PRIDER_EBEYE_XML_GENERATION("priderEbeyeXmlGeneration", "This step generates ebeye xml"),
-
-        PRIDER_EBEYE_ALL_DECISION("priderEbeyeAllDecision", "This step decides to generate or store"),
-
-        PRIDER_GET_AND_STORE_ORIGINAL_PUBLICATION("priderGetAndStoreOriginalPublication", "This step gets and store public path"),
-
-        PRIDE_ARCHIVE_MONGO_TO_SOLR_SYNC_HX("syncProjectMongoDBToSolrCloudStepHX","This Step will sync all the Projects in the Mongo to Solr HX"),
-
-        PRIDE_ARCHIVE_MONGO_TO_SOLR_SYNC_HH("syncProjectMongoDBToSolrCloudStepHH","This Step will sync all the Projects in the Mongo to Solr HH");
-
-
-        String name;
-        String message;
-
-        PrideArchiveStepNames(String name, String message) {
-            this.name = name;
-            this.message = message;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public String getMessage() {
-            return message;
-        }
-
-    }
-
     public static String buildInternalPath(String productionPath, String projectAccession, String publicationYear, String publicationMonth) {
         return productionPath + publicationYear + "/" + publicationMonth + "/" + projectAccession + "/" + "internal/";
     }
 
+    /**
+     * This method remove from the file name the compression extension
+     * @param originalPath File path
+     * @return return a file name without the compression extension.
+     */
     public static String returnUnCompressPath(String originalPath) {
         if (originalPath.endsWith(Compress_Type.GZIP.extension) || originalPath.endsWith(Compress_Type.ZIP.extension)) {
             return originalPath.substring(0, originalPath.length() - 3);

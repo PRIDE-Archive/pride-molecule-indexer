@@ -1,4 +1,4 @@
-package uk.ac.ebi.pride.archive.pipeline.utility;
+package uk.ac.ebi.pride.archive.indexer.utility;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;

@@ -1,4 +1,4 @@
-package uk.ac.ebi.pride.archive.pipeline.utility;
+package uk.ac.ebi.pride.archive.indexer.utility;
 
 /**
  * This code is licensed under the Apache License, Version 2.0 (the

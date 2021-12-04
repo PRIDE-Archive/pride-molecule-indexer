@@ -1,4 +1,4 @@
-package uk.ac.ebi.pride.archive.pipeline.services;
+package uk.ac.ebi.pride.archive.indexer.services;
 
 
 import de.mpc.pia.intermediate.Accession;
@@ -33,13 +33,13 @@ import uk.ac.ebi.pride.archive.dataprovider.data.ptm.IdentifiedModification;
 import uk.ac.ebi.pride.archive.dataprovider.data.ptm.IdentifiedModificationProvider;
 import uk.ac.ebi.pride.archive.dataprovider.param.CvParam;
 import uk.ac.ebi.pride.archive.dataprovider.param.CvParamProvider;
-import uk.ac.ebi.pride.archive.pipeline.services.proteomics.JmzReaderSpectrumService;
-import uk.ac.ebi.pride.archive.pipeline.services.proteomics.PIAModelerService;
-import uk.ac.ebi.pride.archive.pipeline.services.ws.PrideArchiveWebService;
-import uk.ac.ebi.pride.archive.pipeline.services.ws.PrideFile;
-import uk.ac.ebi.pride.archive.pipeline.services.ws.PrideProject;
-import uk.ac.ebi.pride.archive.pipeline.utility.BackupUtil;
-import uk.ac.ebi.pride.archive.pipeline.utility.SubmissionPipelineConstants;
+import uk.ac.ebi.pride.archive.indexer.utility.SubmissionPipelineUtils;
+import uk.ac.ebi.pride.archive.indexer.services.proteomics.JmzReaderSpectrumService;
+import uk.ac.ebi.pride.archive.indexer.services.proteomics.PIAModelerService;
+import uk.ac.ebi.pride.archive.indexer.services.ws.PrideArchiveWebService;
+import uk.ac.ebi.pride.archive.indexer.services.ws.PrideFile;
+import uk.ac.ebi.pride.archive.indexer.services.ws.PrideProject;
+import uk.ac.ebi.pride.archive.indexer.utility.BackupUtil;
 import uk.ac.ebi.pride.archive.spectra.model.ArchiveSpectrum;
 import uk.ac.ebi.pride.mongodb.archive.model.assay.MongoAssayFile;
 import uk.ac.ebi.pride.mongodb.archive.model.assay.MongoPrideAssay;
@@ -52,11 +52,9 @@ import uk.ac.ebi.pride.utilities.term.CvTermReference;
 import uk.ac.ebi.pride.utilities.util.MoleculeUtilities;
 import uk.ac.ebi.pride.utilities.util.Triple;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.AccessDeniedException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DateFormat;
@@ -79,11 +77,9 @@ public class PrideAnalysisAssayService {
     private static final int PIPELINE_RETRY_LIMIT = 20;
 
     @Autowired
-    PrideArchiveWebService prideFileMongoRepository;
+    PrideArchiveWebService prideArchiveWebService;
 
     private PIAModelerService piaModellerService;
-
-    Map<String, Long> taskTimeMap = new HashMap<>();
 
     @Value("${productionPath}")
     String productionPath;
@@ -123,9 +119,103 @@ public class PrideAnalysisAssayService {
         return piaModellerService;
     }
 
+    public void writeRelatedSpectraFiles(String projectAccession, List<String> resultFiles, String outputFile)
+            throws IOException {
+
+        Optional<PrideProject> projectOption = prideArchiveWebService.findByAccession(projectAccession);
+        if(!projectOption.isPresent())
+            throw new IOException("Project not present in the PRIDE WS for accession: " + projectAccession);
+        project = projectOption.get();
+
+        List<PrideFile> projectFiles = prideArchiveWebService.findFilesByProjectAccession(projectAccession);
+        if(projectFiles.size() == 0){
+            throw new IOException("Not files found in the PRIDE WS for accession: " + projectAccession);
+        }
+
+        List<Triple<String, PrideFile, SubmissionPipelineUtils.FileType>> filesRelated = new ArrayList<>();
+
+        resultFiles.stream().forEach( resultFile ->{
+            SubmissionPipelineUtils.FileType fileType = SubmissionPipelineUtils.FileType.getFileTypeFromFileName(resultFile);
+            boolean isCompressFile = SubmissionPipelineUtils.isCompressedByExtension(resultFile);
+            if(fileType != null && !isCompressFile){
+                try {
+                    PIAModeller modeller = piaModellerService.performProteinInference(resultFile,resultFile,
+                                fileType, 1.0, 1.0);
+                    Map<String, SpectraData> spectraDataList = modeller.getSpectraData();
+                    if(fileType == SubmissionPipelineUtils.FileType.PRIDE)
+                        filesRelated.add(new Triple<>(resultFile, null, null));
+                    else{
+                        filesRelated.addAll(getFilesRelatedToResultFile(resultFile, spectraDataList, projectFiles));
+                    }
+
+                } catch (IOException e) {
+                    log.info(String.format("Error reading the file %s with error %s",resultFile,e.getMessage()));
+                }
+
+
+            }else
+                log.info("Provided Result File is not a recognized extension or is compressed: " + resultFile);
+        });
+
+        try {
+            String pattern = "yyyy-MM-dd";
+            SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
+
+            String date = simpleDateFormat.format(projectOption.get().getPublicationDate());
+            try (PrintWriter writer = new PrintWriter(
+                    Files.newBufferedWriter(Paths.get(outputFile)))) {
+                    writer.printf("%s\t%s\t%s\t%s\t%s", "resultFile", "date", "fileType", "filename", "ftp");
+                    writer.println();
+                    filesRelated.forEach(x -> {
+                        if(x.getSecond() != null){
+                            Optional<CvParamProvider> location = x.getSecond().getPublicFileLocations().stream().filter(y -> Objects.equals(y.getAccession(), "PRIDE:0000469")).findFirst();
+                            writer.printf("%s\t%s\t%s\t%s\t%s", x.getFirst(), date, x.getThird().name(), x.getSecond().getFileName(), location.get().getValue());
+                        }else{
+                            writer.printf("%s\t%s\t%s\t%s\t%s", x.getFirst(), date, null, null, null);
+                        }
+                        writer.println();
+                    });
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    /**
+     * This method use the SpectraDataFile to find the list of files in the PRIDE WS that correspond to those referenced
+     * files.
+     * @param resultFile Result file under analysis
+     * @param spectraDataList List of {@link SpectraData} objects
+     * @param projectFiles Project Files from the PRIDE WS
+     * @return Triple
+     */
+    private List<Triple<String, PrideFile, SubmissionPipelineUtils.FileType>> getFilesRelatedToResultFile(String resultFile,
+                                                                                                       Map<String, SpectraData> spectraDataList,
+                                                                                                       List<PrideFile> projectFiles) {
+        List<Triple<String, PrideFile, SubmissionPipelineUtils.FileType>> finalFilesFiltered = projectFiles.stream().map(x -> {
+            boolean isNotFile = false;
+            for( SpectraData fileInResult: spectraDataList.values()){
+                String location = fileInResult.getLocation();
+                String name = fileInResult.getName();
+                if (location != null){
+                    Path p = Paths.get(location);
+                    String file = p.getFileName().toString();
+                    if (x.getFileName().contains(file)){
+                        SubmissionPipelineUtils.FileType fileType = SubmissionPipelineUtils.FileType.getFileTypeFromFileName(file);
+                        return new Triple<String, PrideFile, SubmissionPipelineUtils.FileType>(resultFile, x, fileType);
+                    }
+                }
+            }
+            return null;
+        }).filter(Objects::nonNull).collect(Collectors.toList());
+        return finalFilesFiltered;
+
+    }
+
     public void initJobPRIDEReanalysisAnalyzeAssayJob() throws IOException {
 
-        Optional<PrideProject> project = prideFileMongoRepository.findByAccession(projectAccession);
+        Optional<PrideProject> project = prideArchiveWebService.findByAccession(projectAccession);
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM");
         String allDate = dateFormat.format(project.get().getPublicationDate());
         String[] allDateString = allDate.split("-");
@@ -138,7 +228,7 @@ public class PrideAnalysisAssayService {
         if (year != null && month != null) {
             projectPath = String.join("/",productionPath, year, month, projectAccession);
         }
-        mongoPrideFiles = prideFileMongoRepository.findFilesByProjectAccession(projectAccession);
+        mongoPrideFiles = prideArchiveWebService.findFilesByProjectAccession(projectAccession);
         this.mongoResultFiles = mongoPrideFiles.parallelStream().filter(mongoFile -> mongoFile.getFileCategory().getValue().equals("RESULT")).collect(Collectors.toList());
         if(resultFileName != null){
             this.mongoResultFiles = mongoResultFiles.stream().filter( x-> Objects.equals(x.getFileName(), resultFileName)).collect(Collectors.toList());
@@ -201,7 +291,7 @@ public class PrideAnalysisAssayService {
         createBackupFiles();
         log.info("creating backup files: finished");
 
-        Optional<PrideProject> optionalProject = prideFileMongoRepository.findByAccession(projectAccession);
+        Optional<PrideProject> optionalProject = prideArchiveWebService.findByAccession(projectAccession);
 
         if (mongoResultFiles.size() < 0 || !optionalProject.isPresent()) {
             String errorMessage = "No Project or Assay found!";
@@ -223,7 +313,7 @@ public class PrideAnalysisAssayService {
 
         if (year != null && month != null) {
             //change it local path to test
-            String buildPath = SubmissionPipelineConstants.buildInternalPath(productionPath,projectAccession, year, month);
+            String buildPath = SubmissionPipelineUtils.buildInternalPath(productionPath,projectAccession, year, month);
             for (PrideFile mongoResultFile : mongoResultFiles) {
 
                 log.info("Analyzing assay file  -- " + mongoResultFile.getFileName());
@@ -231,13 +321,13 @@ public class PrideAnalysisAssayService {
                 long nrDecoys = 0;
 
                 Map<String, Object> assayObjects = assayObjectMap.get(mongoResultFile.getAccession());
-                SubmissionPipelineConstants.FileType fileType = SubmissionPipelineConstants.FileType.getFileTypeFromPRIDEFileName(mongoResultFile.getFileName());
+                SubmissionPipelineUtils.FileType fileType = SubmissionPipelineUtils.FileType.getFileTypeFromFileName(mongoResultFile.getFileName());
 
                 /**
                  * The first threshold for modeller is not threshold at PSM and Protein level.
                  */
                 PIAModeller modeller = piaModellerService.performProteinInference(mongoResultFile.getAccession(),
-                        SubmissionPipelineConstants.returnUnCompressPath(buildPath + mongoResultFile.getFileName()),
+                        SubmissionPipelineUtils.returnUnCompressPath(buildPath + mongoResultFile.getFileName()),
                         fileType, 1.0, 1.0);
 
                 nrDecoys = modeller.getPSMModeller().getReportPSMSets().entrySet().stream()
@@ -288,11 +378,9 @@ public class PrideAnalysisAssayService {
             throw new IOException(errorMessage);
         }
 
-        taskTimeMap.put(SubmissionPipelineConstants.PrideArchiveStepNames.PRIDE_ARCHIVE_MONGODB_ASSAY_INFERENCE.getName(),
-                System.currentTimeMillis() - initAnalysisAssay);
+        log.info(String.valueOf(System.currentTimeMillis() - initAnalysisAssay));
 
     }
-
 
     void updateAssayInformationStep() {
         for (PrideFile mongoResultFile : mongoResultFiles) {
@@ -441,8 +529,6 @@ public class PrideAnalysisAssayService {
     }
 
     public void analyzeAssayPrintTraceStep() throws IOException {
-        taskTimeMap.forEach((key, value) -> log.info("Task: " + key + " Time: " + value));
-
         Set<Map.Entry<String, Map<String, Object>>> assaySet = assayObjectMap.entrySet();
         for (Map.Entry<String, Map<String, Object>> assay : assaySet) {
             Map<String, Object> assayObject = assay.getValue();
@@ -602,8 +688,11 @@ public class PrideAnalysisAssayService {
      * @param protein  Identified Protein
      * @param peptides Collection of identified highQualityPeptides in the experiment
      */
-    private void indexPeptideByProtein(ReportProtein protein, List<ReportPeptide> peptides, Map<Long, List<PeptideSpectrumOverview>> peptideUsi
-            , Set<CvParam> validationMethods, BufferedWriter peptideEvidenceBufferedWriter, String assayAccession, boolean isValid) throws Exception {
+    private void indexPeptideByProtein(ReportProtein protein, List<ReportPeptide> peptides,
+                                       Map<Long, List<PeptideSpectrumOverview>> peptideUsi,
+                                       Set<CvParam> validationMethods,
+                                       BufferedWriter peptideEvidenceBufferedWriter,
+                                       String assayAccession, boolean isValid) throws Exception {
 
         for (ReportPeptide peptide : protein.getPeptides()) {
             Optional<ReportPeptide> firstPeptide = peptides.stream()
@@ -689,7 +778,7 @@ public class PrideAnalysisAssayService {
                         .assayAccession(assayAccession)
                         .proteinAccession(protein.getRepresentative().getAccession())
                         .isDecoy(firstPeptide.get().getIsDecoy())
-                        .peptideAccession(SubmissionPipelineConstants
+                        .peptideAccession(SubmissionPipelineUtils
                                 .encodePeptide(peptide.getSequence(), peptide.getModifications()))
                         .peptideSequence(peptide.getSequence())
                         .additionalAttributes(peptideAttributes)
@@ -882,13 +971,13 @@ public class PrideAnalysisAssayService {
                         || assayResultFile.get().getFileCategory().getAccession().equalsIgnoreCase("PRIDE:1002848"))) {
 
                     JmzReaderSpectrumService service = null;
-                    List<Triple<String, SpectraData, SubmissionPipelineConstants.FileType>> mongoRelatedFiles = new ArrayList<>(spectrumFiles.size());
+                    List<Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> mongoRelatedFiles = new ArrayList<>(spectrumFiles.size());
 
 
                     if (spectrumFiles.size() == 0) {
                         throw new Exception("No spectra file found");
                     }
-                    List<Triple<String, SpectraData, SubmissionPipelineConstants.FileType>> finalMongoRelatedFilesFiltered = mongoRelatedFiles;
+                    List<Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> finalMongoRelatedFilesFiltered = mongoRelatedFiles;
 //                                    List<MongoPrideFile> fileNamesFiltered = mongoPrideFiles.stream().filter(x -> {
 //                                        boolean isNotFile = false;
 //                                        for( SpectraData fileInResult: spectrumFiles){
@@ -914,7 +1003,7 @@ public class PrideAnalysisAssayService {
 
 
                     JmzReaderSpectrumService finalService = service;
-                    List<Triple<String, SpectraData, SubmissionPipelineConstants.FileType>> finalMongoRelatedFiles = finalMongoRelatedFilesFiltered;
+                    List<Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> finalMongoRelatedFiles = finalMongoRelatedFilesFiltered;
 
                     peptides.forEach(peptide -> peptide.getPSMs().forEach(psm -> {
                         try {
@@ -930,7 +1019,7 @@ public class PrideAnalysisAssayService {
                             Spectrum fileSpectrum = null;
                             String spectrumFile = null;
                             String fileName = null;
-                            Optional<Triple<String, SpectraData, SubmissionPipelineConstants.FileType>> refeFile = null;
+                            Optional<Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> refeFile = null;
                             String usi = null;
                             String spectraUsi = null;
 
@@ -941,16 +1030,16 @@ public class PrideAnalysisAssayService {
                                                         .getInputSpectra().get(0).getSpectraDataRef()))
                                         .findFirst();
                                 spectrumFile = refeFile.get().getFirst();
-                                String spectrumId = SubmissionPipelineConstants.getSpectrumId(refeFile.get().getSecond(), (ReportPSM) psm);
+                                String spectrumId = SubmissionPipelineUtils.getSpectrumId(refeFile.get().getSecond(), (ReportPSM) psm);
                                 fileSpectrum = finalService.getSpectrumById(spectrumFile, spectrumId);
 
-                                usi = SubmissionPipelineConstants.buildUsi(projectAccession, refeFile.get(),
+                                usi = SubmissionPipelineUtils.buildUsi(projectAccession, refeFile.get(),
                                         (ReportPSM) psm);
                                 Path p = Paths.get(refeFile.get().getFirst());
                                 fileName = p.getFileName().toString();
                             }
 
-                            spectraUsi = SubmissionPipelineConstants.getSpectraUsiFromUsi(usi);
+                            spectraUsi = SubmissionPipelineUtils.getSpectraUsiFromUsi(usi);
 
                             log.info(fileSpectrum.getId() + " " + (psm.getMassToCharge() - fileSpectrum.getPrecursorMZ()));
                             Double[] masses = new Double[fileSpectrum.getPeakList().size()];
@@ -1113,7 +1202,7 @@ public class PrideAnalysisAssayService {
                                     .fileName(fileName)
                                     .additionalAttributes(psmAttributes)
                                     .precursorMass(psm.getMassToCharge())
-                                    .modifiedPeptideSequence(SubmissionPipelineConstants
+                                    .modifiedPeptideSequence(SubmissionPipelineUtils
                                             .encodePeptide(psm.getSequence(), psm.getModifications()))
                                     .build();
 
@@ -1152,8 +1241,7 @@ public class PrideAnalysisAssayService {
 
         }
 
-        taskTimeMap.put(SubmissionPipelineConstants.PrideArchiveStepNames.PRIDE_ARCHIVE_MONGODB_SPECTRUM_UPDATE.getName(),
-                System.currentTimeMillis() - initSpectraStep);
+        log.info(String.valueOf(System.currentTimeMillis() - initSpectraStep));
 
 
     }

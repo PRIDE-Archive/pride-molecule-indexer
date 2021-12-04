@@ -1,4 +1,4 @@
-package uk.ac.ebi.pride.archive.pipeline.utility;
+package uk.ac.ebi.pride.archive.indexer.utility;
 
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;

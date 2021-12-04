@@ -1,9 +1,9 @@
-package uk.ac.ebi.pride.archive.pipeline.services.proteomics;
+package uk.ac.ebi.pride.archive.indexer.services.proteomics;
 
 import com.amazonaws.services.s3.AmazonS3;
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.ebi.jmzidml.model.mzidml.SpectraData;
-import uk.ac.ebi.pride.archive.pipeline.utility.SubmissionPipelineConstants;
+import uk.ac.ebi.pride.archive.indexer.utility.SubmissionPipelineUtils;
 import uk.ac.ebi.pride.tools.jmzreader.JMzReader;
 import uk.ac.ebi.pride.tools.jmzreader.JMzReaderException;
 import uk.ac.ebi.pride.tools.jmzreader.model.Spectrum;
@@ -36,28 +36,28 @@ public class JmzReaderSpectrumService {
 
     AmazonS3 s3Client;
 
-    private JmzReaderSpectrumService(List<Triple<String, SpectraData, SubmissionPipelineConstants.FileType>> spectrumFileList) throws JMzReaderException, MzXMLParsingException {
+    private JmzReaderSpectrumService(List<Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> spectrumFileList) throws JMzReaderException, MzXMLParsingException {
         this.readers = new HashMap<>();
-        for (Triple<String, SpectraData, SubmissionPipelineConstants.FileType> entry : spectrumFileList) {
+        for (Triple<String, SpectraData, SubmissionPipelineUtils.FileType> entry : spectrumFileList) {
             String key = (String) entry.getFirst();
-            SubmissionPipelineConstants.FileType value = entry.getThird();
+            SubmissionPipelineUtils.FileType value = entry.getThird();
 //            if(value == null && entry.getSecond().getSpectrumIDFormat().getCvParam().getAccession().equals("MS:1000774")){
 //                entry.setThird(SubmissionPipelineConstants.FileType.MGF);
 //                value = SubmissionPipelineConstants.FileType.MGF;
 //            }
-            if (value == SubmissionPipelineConstants.FileType.MGF) {
+            if (value == SubmissionPipelineUtils.FileType.MGF) {
                 this.readers.put(key, new MgfFile(new File(key), true));
             }
-            if (value == SubmissionPipelineConstants.FileType.PRIDE) {
+            if (value == SubmissionPipelineUtils.FileType.PRIDE) {
                 this.readers.put(key, new PRIDEXmlWrapper(new File(key)));
             }
-            if( value == SubmissionPipelineConstants.FileType.MZML){
+            if( value == SubmissionPipelineUtils.FileType.MZML){
                 this.readers.put(key, new MzMlWrapper(new File(key)));
             }
-            if( value == SubmissionPipelineConstants.FileType.PKL){
+            if( value == SubmissionPipelineUtils.FileType.PKL){
                 this.readers.put(key, new PklFile(new File(key)));
             }
-            if( value == SubmissionPipelineConstants.FileType.MZXML){
+            if( value == SubmissionPipelineUtils.FileType.MZXML){
                 this.readers.put(key, new MzXMLFile(new File(key)));
             }
         }
@@ -70,7 +70,7 @@ public class JmzReaderSpectrumService {
      * @return
      * @throws JMzReaderException
      */
-    public static JmzReaderSpectrumService getInstance(List<Triple<String, SpectraData, SubmissionPipelineConstants.FileType>> spectrumFileList) throws JMzReaderException, MzXMLParsingException {
+    public static JmzReaderSpectrumService getInstance(List<Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> spectrumFileList) throws JMzReaderException, MzXMLParsingException {
         return new JmzReaderSpectrumService(spectrumFileList);
     }
 

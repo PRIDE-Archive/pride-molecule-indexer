@@ -1,4 +1,4 @@
-package uk.ac.ebi.pride.archive.pipeline.utility;
+package uk.ac.ebi.pride.archive.indexer.utility;
 
 import lombok.extern.log4j.Log4j;
 import uk.ac.ebi.pride.mongodb.archive.model.projects.MongoPrideProject;

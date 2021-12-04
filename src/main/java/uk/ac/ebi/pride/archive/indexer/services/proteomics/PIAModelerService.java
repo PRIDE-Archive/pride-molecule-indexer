@@ -1,4 +1,4 @@
-package uk.ac.ebi.pride.archive.pipeline.services.proteomics;
+package uk.ac.ebi.pride.archive.indexer.services.proteomics;
 
 import de.mpc.pia.intermediate.compiler.PIACompiler;
 import de.mpc.pia.intermediate.compiler.PIASimpleCompiler;
@@ -14,7 +14,7 @@ import de.mpc.pia.modeller.report.filter.impl.PSMScoreFilter;
 import de.mpc.pia.modeller.score.FDRData;
 import de.mpc.pia.modeller.score.ScoreModelEnum;
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.ebi.pride.archive.pipeline.utility.SubmissionPipelineConstants;
+import uk.ac.ebi.pride.archive.indexer.utility.SubmissionPipelineUtils;
 
 
 import java.io.File;
@@ -37,7 +37,7 @@ public class PIAModelerService {
      * @param proteinQThreshold q-value threshold
      */
     public PIAModeller performProteinInference(String assayId,
-                                               String filePath, SubmissionPipelineConstants.FileType fileType,
+                                               String filePath, SubmissionPipelineUtils.FileType fileType,
                                                double psmQThreshold, double proteinQThreshold) throws IOException {
 
         PIAModeller piaModeller = computeFDRPSMLevel(assayId, filePath, fileType);
@@ -103,13 +103,13 @@ public class PIAModelerService {
      * @return PIAModeller
      * @throws IOException
      */
-    private PIAModeller computeFDRPSMLevel(String assayKey, String filePath, SubmissionPipelineConstants.FileType fileType) throws IOException {
+    private PIAModeller computeFDRPSMLevel(String assayKey, String filePath, SubmissionPipelineUtils.FileType fileType) throws IOException {
 
         PIAModeller piaModeller = null;
         PIACompiler piaCompiler = new PIASimpleCompiler();
 
         String type = InputFileParserFactory.InputFileTypes.MZTAB_INPUT.getFileTypeShort();
-        if(fileType == SubmissionPipelineConstants.FileType.MZID)
+        if(fileType == SubmissionPipelineUtils.FileType.MZID)
            type = InputFileParserFactory.InputFileTypes.MZIDENTML_INPUT.getFileTypeShort();
 //        else if (fileType == SubmissionPipelineConstants.FileType.MZID)
 //           type = InputFileParserFactory.InputFileTypes.MZIDENTML_INPUT.getFileTypeShort();
