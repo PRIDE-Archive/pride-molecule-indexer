@@ -16,6 +16,7 @@ import de.mpc.pia.modeller.report.filter.impl.PSMScoreFilter;
 import de.mpc.pia.modeller.score.ScoreModelEnum;
 import de.mpc.pia.tools.pride.PRIDETools;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.FilenameUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -199,8 +200,7 @@ public class PrideAnalysisAssayService {
                 String location = fileInResult.getLocation();
                 String name = fileInResult.getName();
                 if (location != null){
-                    Path p = Paths.get(location);
-                    String file = p.getFileName().toString();
+                    String file = FilenameUtils.getName(location);
                     if (x.getFileName().contains(file)){
                         SubmissionPipelineUtils.FileType fileType = SubmissionPipelineUtils.FileType.getFileTypeFromFileName(file);
                         return new Triple<String, PrideFile, SubmissionPipelineUtils.FileType>(resultFile, x, fileType);
