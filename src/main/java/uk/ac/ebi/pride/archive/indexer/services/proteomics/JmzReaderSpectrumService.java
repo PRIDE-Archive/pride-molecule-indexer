@@ -2,7 +2,6 @@ package uk.ac.ebi.pride.archive.indexer.services.proteomics;
 
 import com.amazonaws.services.s3.AmazonS3;
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.ebi.jmzidml.model.mzidml.SpectraData;
 import uk.ac.ebi.pride.archive.indexer.utility.SubmissionPipelineUtils;
 import uk.ac.ebi.pride.tools.jmzreader.JMzReader;
 import uk.ac.ebi.pride.tools.jmzreader.JMzReaderException;
@@ -13,7 +12,6 @@ import uk.ac.ebi.pride.tools.mzxml_parser.MzXMLFile;
 import uk.ac.ebi.pride.tools.mzxml_parser.MzXMLParsingException;
 import uk.ac.ebi.pride.tools.pkl_parser.PklFile;
 import uk.ac.ebi.pride.tools.pride_wrapper.PRIDEXmlWrapper;
-import uk.ac.ebi.pride.utilities.util.Triple;
 import uk.ac.ebi.pride.utilities.util.Tuple;
 
 import java.io.File;
@@ -28,23 +26,14 @@ public class JmzReaderSpectrumService {
     /**
      * Map of all readers containing the spectra
      */
-    Map<String, JMzReader> readers = new HashMap<>();
+    Map<String, JMzReader> readers;
 
-    String clientRegion = "*** Client region ***";
-    String bucketName = "*** Bucket name ***";
-    String key = "*** Object key ***";
-
-    AmazonS3 s3Client;
-
-    private JmzReaderSpectrumService(List<Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> spectrumFileList) throws JMzReaderException, MzXMLParsingException {
+    private JmzReaderSpectrumService(List<Tuple<String, SubmissionPipelineUtils.FileType>> spectrumFileList) throws JMzReaderException, MzXMLParsingException {
         this.readers = new HashMap<>();
-        for (Triple<String, SpectraData, SubmissionPipelineUtils.FileType> entry : spectrumFileList) {
-            String key = (String) entry.getFirst();
-            SubmissionPipelineUtils.FileType value = entry.getThird();
-//            if(value == null && entry.getSecond().getSpectrumIDFormat().getCvParam().getAccession().equals("MS:1000774")){
-//                entry.setThird(SubmissionPipelineConstants.FileType.MGF);
-//                value = SubmissionPipelineConstants.FileType.MGF;
-//            }
+        for (Tuple<String, SubmissionPipelineUtils.FileType> entry : spectrumFileList) {
+            String key = (String) entry.getKey();
+            SubmissionPipelineUtils.FileType value = entry.getValue();
+
             if (value == SubmissionPipelineUtils.FileType.MGF) {
                 this.readers.put(key, new MgfFile(new File(key), true));
             }
@@ -70,7 +59,7 @@ public class JmzReaderSpectrumService {
      * @return
      * @throws JMzReaderException
      */
-    public static JmzReaderSpectrumService getInstance(List<Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> spectrumFileList) throws JMzReaderException, MzXMLParsingException {
+    public static JmzReaderSpectrumService getInstance(List<Tuple<String, SubmissionPipelineUtils.FileType>> spectrumFileList) throws JMzReaderException, MzXMLParsingException {
         return new JmzReaderSpectrumService(spectrumFileList);
     }
 

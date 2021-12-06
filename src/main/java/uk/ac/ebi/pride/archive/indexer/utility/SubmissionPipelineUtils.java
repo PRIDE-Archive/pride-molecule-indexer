@@ -226,6 +226,7 @@ public class SubmissionPipelineUtils {
         String spectraUsi;
         String[] usiArray = usi.split(":");
         String[] subset = Arrays.copyOfRange(usiArray, 0, 5);
+        subset[2] = subset[2].substring(0, subset[2].lastIndexOf('.'));
         spectraUsi = String.join(":", subset);
         return spectraUsi;
     }

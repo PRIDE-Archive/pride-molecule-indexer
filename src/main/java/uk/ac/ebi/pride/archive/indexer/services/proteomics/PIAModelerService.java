@@ -111,8 +111,8 @@ public class PIAModelerService {
         String type = InputFileParserFactory.InputFileTypes.MZTAB_INPUT.getFileTypeShort();
         if(fileType == SubmissionPipelineUtils.FileType.MZID)
            type = InputFileParserFactory.InputFileTypes.MZIDENTML_INPUT.getFileTypeShort();
-//        else if (fileType == SubmissionPipelineConstants.FileType.MZID)
-//           type = InputFileParserFactory.InputFileTypes.MZIDENTML_INPUT.getFileTypeShort();
+        else if (fileType == SubmissionPipelineUtils.FileType.PRIDE)
+           type = InputFileParserFactory.InputFileTypes.PRIDEXML_INPUT.getFileTypeShort();
 
         piaCompiler.getDataFromFile(assayKey, filePath, null, type);
 

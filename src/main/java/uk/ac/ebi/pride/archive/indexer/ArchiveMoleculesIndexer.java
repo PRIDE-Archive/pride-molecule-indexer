@@ -21,6 +21,7 @@ import uk.ac.ebi.pride.archive.indexer.services.PrideAnalysisAssayService;
 import uk.ac.ebi.pride.archive.indexer.services.ws.PrideArchiveWebService;
 import uk.ac.ebi.pride.archive.spectra.services.S3SpectralArchive;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -34,7 +35,7 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
     @Value("${batchCommit}")
     private int batchComit = 1;
 
-    private String[] options = {"get-result-files", "get-related-files"};
+    private String[] options = {"get-result-files", "get-related-files", "generate-index-files"};
 
     @Autowired
     private ConfigurableApplicationContext context;
@@ -99,6 +100,33 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
             }
             analysisAssayService.writeRelatedSpectraFiles(projectAccession, resultFileOptions, fileOutput);
         }
+        else if(Objects.equals(command, "generate-index-files")){
+            List<String> projectAccessionOptions = args.getOptionValues("app.project-accession");
+            if(projectAccessionOptions.size() != 1){
+                throw new Exception("Project accession should be provided for command " +
+                        "generate-index-files with parameter --app.project-accession");
+            }
+            String projectAccession = projectAccessionOptions.get(0);
+
+            List<String> fileOutputOptions = args.getOptionValues("app.folder-output");
+            if(fileOutputOptions.size() != 1){
+                throw new Exception("Project accession should be provided for command " +
+                        "generate-index-files with parameter --app.folder-output");
+            }
+            String fileOutput = fileOutputOptions.get(0);
+
+            List<String> resultFileOptions = args.getOptionValues("app.result-file");
+            if(resultFileOptions.size() == 0){
+                throw new Exception("Project accession should be provided for command " +
+                        "generate-index-files with parameter --app.result-file");
+            }
+
+            List<String> spectraFiles = args.getOptionValues("app.spectra-files");
+            if(spectraFiles == null)
+                spectraFiles = new ArrayList<>();
+            analysisAssayService.writeAnalysisOutputFromResultFiles(projectAccession, resultFileOptions, spectraFiles, fileOutput);
+
+        }
 
         args.getOptionNames().forEach(optionName -> {
             System.out.println(optionName + "=" + args.getOptionValues(optionName));
@@ -106,17 +134,5 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
 
     }
 
-    @Bean
-    @Qualifier("s3Client")
-    AmazonS3 s3Client(){
-        return  AmazonS3ClientBuilder.standard()
-                .build();
-    }
-
-    @Bean
-    @Qualifier("profilesConfigFile")
-    ProfilesConfigFile profilesConfigFile(){
-        return new ProfilesConfigFile();
-    }
 
 }
