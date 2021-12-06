@@ -41,7 +41,6 @@ import uk.ac.ebi.pride.archive.indexer.services.ws.PrideFile;
 import uk.ac.ebi.pride.archive.indexer.services.ws.PrideProject;
 import uk.ac.ebi.pride.archive.indexer.utility.BackupUtil;
 import uk.ac.ebi.pride.archive.spectra.model.ArchiveSpectrum;
-import uk.ac.ebi.pride.mongodb.archive.model.assay.MongoPrideAssay;
 import uk.ac.ebi.pride.mongodb.molecules.model.peptide.PrideMongoPeptideEvidence;
 import uk.ac.ebi.pride.mongodb.molecules.model.protein.PrideMongoProteinEvidence;
 import uk.ac.ebi.pride.mongodb.molecules.model.psm.PrideMongoPsmSummaryEvidence;
@@ -54,7 +53,6 @@ import uk.ac.ebi.pride.utilities.util.Triple;
 import java.io.*;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
@@ -71,7 +69,6 @@ public class PrideAnalysisAssayService {
 
     private static final Long MERGE_FILE_ID = 1L;
     private static final Long FILE_ID = 1L;
-    private static final int PIPELINE_RETRY_LIMIT = 20;
 
     @Autowired
     PrideArchiveWebService prideArchiveWebService;
@@ -81,24 +78,13 @@ public class PrideAnalysisAssayService {
     @Value("${productionPath}")
     String productionPath;
 
-    String projectPath;
-
-    PrideProject project;
-
     @Value("${qValueThreshold:#{0.01}}")
     private Double qValueThreshold;
 
     @Value("${qFilterProteinFDR:#{1.0}}")
     private Double qFilterProteinFDR;
 
-    List<PrideFile> mongoResultFiles;
-
-    List<MongoPrideAssay> assayList = new ArrayList<>();
-
-    String buildPath;
-
     DecimalFormat df = new DecimalFormat("###.#####");
-    private List<PrideFile> mongoPrideFiles;
 
     @Bean
     PIAModelerService getPIAModellerService() {
@@ -119,7 +105,7 @@ public class PrideAnalysisAssayService {
         Optional<PrideProject> projectOption = prideArchiveWebService.findByAccession(projectAccession);
         if(!projectOption.isPresent())
             throw new IOException("Project not present in the PRIDE WS for accession: " + projectAccession);
-        project = projectOption.get();
+        PrideProject project = projectOption.get();
 
         List<PrideFile> projectFiles = prideArchiveWebService.findFilesByProjectAccession(projectAccession);
         if(projectFiles.size() == 0){
@@ -145,8 +131,6 @@ public class PrideAnalysisAssayService {
                 } catch (IOException e) {
                     log.info(String.format("Error reading the file %s with error %s",resultFile,e.getMessage()));
                 }
-
-
             }else
                 log.info("Provided Result File is not a recognized extension or is compressed: " + resultFile);
         });
@@ -240,7 +224,7 @@ public class PrideAnalysisAssayService {
         Optional<PrideProject> projectOption = prideArchiveWebService.findByAccession(projectAccession);
         if(!projectOption.isPresent())
             throw new IOException("Project not present in the PRIDE WS for accession: " + projectAccession);
-        project = projectOption.get();
+        PrideProject project = projectOption.get();
 
         List<PrideFile> projectFiles = prideArchiveWebService.findFilesByProjectAccession(projectAccession);
         if(projectFiles.size() == 0){
@@ -259,7 +243,9 @@ public class PrideAnalysisAssayService {
                         if(allPSMs.size() == 0)
                             throw new IOException(String.format("The result file analyzed %s don't have peptides", resultFile));
                         assayObjectMap = createBackupFiles(prideFile.get(), assayObjectMap, folderOutput, projectAccession);
+
                         indexSpectraStep(projectAccession, resultFile, prideFile.get(), assayObjectMap, fileType, spectraFiles);
+                        proteinPeptideIndexStep(prideFile.get(), assayObjectMap, projectAccession);
 
                         closeBackupFiles(assayObjectMap);
 
@@ -832,13 +818,11 @@ public class PrideAnalysisAssayService {
 //        }
 //    }
 
-    public void proteinPeptideIndexStep(Map<String, Object> assayObjects, String projectAccession) throws Exception {
+    public void proteinPeptideIndexStep(PrideFile prideFile, Map<String, Object> assayObjects, String projectAccession) throws Exception {
         long initInsertPeptides = System.currentTimeMillis();
 
-        if (mongoResultFiles != null && assayObjects.get("modeller") != null) {
+        if (assayObjects.get("modeller") != null) {
             log.info("proteinPeptideIndexStep assay file  -- " + assayObjects.get("modeller").toString());
-
-            PIAModeller modeller = (PIAModeller) assayObjects.get("modeller");
 
             List<ReportPeptide> highQualityPeptides = (List<ReportPeptide>) assayObjects.get("highQualityPeptides");
             List<ReportProtein> highQualityProteins = (List<ReportProtein>) assayObjects.get("highQualityProteins");
@@ -942,7 +926,7 @@ public class PrideAnalysisAssayService {
                         .proteinSequence(proteinSequence)
                         .bestSearchEngineScore(scoreParam)
                         .additionalAttributes(attributes)
-//                        .assayAccession(mongoResultFile.getAccession())
+                        .assayAccession(prideFile.getAccession())
                         .isValid(isValid)
                         .qualityEstimationMethods(validationMethods)
                         .numberPeptides(protein.getPeptides().size())
@@ -953,17 +937,15 @@ public class PrideAnalysisAssayService {
                 if (isValid || submitterValid.get()) {
                     try {
                         BackupUtil.write(proteinEvidence, (BufferedWriter) assayObjects.get("proteinEvidenceBufferedWriter"));
-//                                            moleculesService.insertProteinEvidences(proteinEvidence);
                     } catch (DuplicateKeyException ex) {
-//                                            moleculesService.saveProteinEvidences(proteinEvidence);
                         log.debug("The protein was already in the database -- " + proteinEvidence.getReportedAccession());
                     } catch (Exception e) {
                         log.error(e.getMessage(), e);
                         throw new Exception(e);
                     }
-//                    indexPeptideByProtein(protein, finalPeptides, (Map<Long, List<PeptideSpectrumOverview>>) assayObjects.get("peptideUsi")
-//                            , (Set<CvParam>) assayObjects.get("validationMethods"),
-//                            (BufferedWriter) assayObjects.get("peptideEvidenceBufferedWriter"), mongoResultFile.getAccession(), isValid);
+                    indexPeptideByProtein(protein, finalPeptides, (Map<Long, List<PeptideSpectrumOverview>>) assayObjects.get("peptideUsi")
+                            , (Set<CvParam>) assayObjects.get("validationMethods"),
+                    (BufferedWriter) assayObjects.get("peptideEvidenceBufferedWriter"), prideFile.getAccession(), isValid, projectAccession);
                 }
             }
         }
@@ -1082,10 +1064,6 @@ public class PrideAnalysisAssayService {
                 if (isValid || submitterValid.get()) {
                     try {
                         BackupUtil.write(peptideEvidence, peptideEvidenceBufferedWriter);
-//                        moleculesService.insertPeptideEvidence(peptideEvidence);
-                    } catch (DuplicateKeyException ex) {
-//                       moleculesService.savePeptideEvidence(peptideEvidence);
-                        log.debug("The peptide evidence was already in the database -- " + peptideEvidence.getPeptideAccession());
                     } catch (Exception e) {
                         log.error(e.getMessage(), e);
                         throw new Exception(e);
