@@ -1,6 +1,8 @@
 package uk.ac.ebi.pride.archive.indexer;
 
-import com.amazonaws.auth.profile.ProfilesConfigFile;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +21,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import uk.ac.ebi.pride.archive.indexer.services.PrideAnalysisAssayService;
 import uk.ac.ebi.pride.archive.indexer.services.ws.PrideArchiveWebService;
+import uk.ac.ebi.pride.archive.spectra.configs.AWS3Configuration;
 import uk.ac.ebi.pride.archive.spectra.services.S3SpectralArchive;
 
 import java.util.ArrayList;
@@ -134,5 +137,9 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
 
     }
 
-
+    @Bean
+    @Qualifier("amazonS3")
+    AmazonS3 amazonS3(){
+        return AmazonS3ClientBuilder.standard().build();
+    }
 }

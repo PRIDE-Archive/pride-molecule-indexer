@@ -10,10 +10,13 @@ import uk.ac.ebi.pride.utilities.util.Triple;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 
 /**
@@ -297,48 +300,17 @@ public class SubmissionPipelineUtils {
         return SpecIdFormat.NONE;
     }
 
-    public static class GenerateEbeyeXmlConstants {
-
-        public static final String NOT_AVAILABLE = "Not available";
-        public static final String PRIDE_URL = "http://www.ebi.ac.uk/pride/archive/projects/";
-        public static final String DEFAULT_EXPERIMENT_TYPE = "Mass Spectrometry";
-        public static final String PRIDE_DATABASE_NAME = "Pride";
-        public static final String PUBLICATION = "publication";
-        public static final String SUBMISSION = "submission";
-        public static final String YYYY_MM_DD = "yyyy-MM-dd";
-        public static final String OMICS_TYPE = "omics_type";
-        public static final String FULL_DATASET_LINK = "full_dataset_link";
-        public static final String REPOSITORY = "repository";
-        public static final String PRIDE = "pride";
-        public static final String SAMPLE_PROTOCOL = "sample_protocol";
-        public static final String DATA_PROTOCOL = "data_protocol";
-        public static final String INSTRUMENT_PLATFORM = "instrument_platform";
-        public static final String SPECIES = "species";
-        public static final String CELL_TYPE = "cell_type";
-        public static final String DISEASE = "disease";
-        public static final String TISSUE = "tissue";
-        public static final String MODIFICATION = "modification";
-        public static final String TECHNOLOGY_TYPE = "technology_type";
-        public static final String CURATOR_KEYWORDS = "curator_keywords";
-        public static final String SUBMITTER_KEYWORDS = "submitter_keywords";
-        public static final String QUANTIFICATION_METHOD = "quantification_method";
-        public static final String SUBMISSION_TYPE = "submission_type";
-        public static final String SOFTWARE = "software";
-        public static final String DOI = "doi";
-        public static final String SUBMITTER = "submitter";
-        public static final String SUBMITTER_MAIL = "submitter_mail";
-        public static final String SUBMITTER_AFFILIATION = "submitter_affiliation";
-        public static final String SUBMITTER_COUNTRY = "submitter_country";
-        public static final String LABHEAD = "labhead";
-        public static final String LABHEAD_MAIL = "labhead_mail";
-        public static final String LABHEAD_AFFILIATION = "labhead_affiliation";
-        public static final String DATASET_FILE = "dataset_file";
-        public static final String PRIDE_FTP_URL = "ftp://ftp.pride.ebi.ac.uk/pride/data/archive/";
-        public static final String PRIDE_EBEYE = "PRIDE_EBEYE_";
-        public static final String XML = ".xml";
-        public static final String PUBMED = "pubmed";
-        public static final String TAXONOMY = "TAXONOMY";
-        public static final String ORCID = "ORCID";
+    /**
+     * This function aim to translate a Qvalue of 0.0 to the minor Qvalue from the distribution of qvalues.
+     * @param currentQValue Current Q-value
+     * @param allQValues All q-values
+     * @return new q-values.
+     */
+    public static double getQValueLower(double currentQValue, List<Double> allQValues){
+        if(currentQValue > 0.0)
+            return currentQValue;
+        Double minQValue = Collections.min(allQValues.stream().filter( x -> x > 0.0).collect(Collectors.toList()));
+        return new BigDecimal(minQValue/10).setScale(6, RoundingMode.HALF_UP).doubleValue();
     }
 
     /**
