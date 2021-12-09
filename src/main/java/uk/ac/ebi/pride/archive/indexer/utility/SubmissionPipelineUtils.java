@@ -320,7 +320,7 @@ public class SubmissionPipelineUtils {
      * @param allQValues All q-values
      * @return new q-values.
      */
-    public static double getQValueLower(double currentQValue, List<Double> allQValues){
+    public static double getQValueLower(double currentQValue, Set<Double> allQValues){
         if(currentQValue > 0.0)
             return currentQValue;
         Double minQValue = Collections.min(allQValues.stream().filter( x -> x > 0.0).collect(Collectors.toList()));
