@@ -2,6 +2,7 @@ package uk.ac.ebi.pride.archive.indexer.utility;
 
 import de.mpc.pia.intermediate.Modification;
 import de.mpc.pia.modeller.psm.ReportPSM;
+import org.apache.commons.io.FilenameUtils;
 import uk.ac.ebi.jmzidml.model.mzidml.FileFormat;
 import uk.ac.ebi.jmzidml.model.mzidml.SpectraData;
 import uk.ac.ebi.pride.archive.spectra.utils.Constants;
@@ -229,9 +230,22 @@ public class SubmissionPipelineUtils {
         String spectraUsi;
         String[] usiArray = usi.split(":");
         String[] subset = Arrays.copyOfRange(usiArray, 0, 5);
-        subset[2] = subset[2].substring(0, subset[2].lastIndexOf('.'));
+        subset[2] = getFileNameNoExtension(subset[2]);
         spectraUsi = String.join(":", subset);
         return spectraUsi;
+    }
+
+    /**
+     * Get the name of a file removing the following components:
+     * - extension gz or zip
+     * - original extension of the file .xml or .mzML
+     * - parent path of the file (e.g. /home/user/)
+     * @param fullPath full path
+     * @return name of the file
+     */
+    public static String getFileNameNoExtension(String fullPath){
+        String fileName = returnUnCompressPath(FilenameUtils.getName(fullPath));
+        return fileName.substring(0, fileName.lastIndexOf('.'));
     }
 
     /**
