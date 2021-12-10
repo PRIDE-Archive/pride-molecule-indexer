@@ -57,7 +57,6 @@ import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -117,7 +116,7 @@ public class PrideAnalysisAssayService {
 
         List<Triple<Tuple<String, String>, PrideFile, SubmissionPipelineUtils.FileType>> filesRelated = new ArrayList<>();
 
-        resultFiles.stream().forEach( resultFile ->{
+        resultFiles.forEach(resultFile ->{
             SubmissionPipelineUtils.FileType fileType = SubmissionPipelineUtils.FileType.getFileTypeFromFileName(resultFile);
             boolean isCompressFile = SubmissionPipelineUtils.isCompressedByExtension(resultFile);
             if(fileType != null && !isCompressFile){
@@ -224,7 +223,7 @@ public class PrideAnalysisAssayService {
     }
 
 
-    public void writeAnalysisOutputFromResultFiles(String projectAccession, List<String> resultFiles, List<String> spectraFiles, String folderOutput) throws IOException {
+    public void writeAnalysisOutputFromResultFiles(String projectAccession, List<String> resultFiles, Set<String> spectraFiles, String folderOutput) throws IOException {
 
         Optional<PrideProject> projectOption = prideArchiveWebService.findByAccession(projectAccession);
         if(!projectOption.isPresent())
@@ -238,10 +237,10 @@ public class PrideAnalysisAssayService {
 
         initGlobalSampleMetadata(projectOption.get(), spectraFiles);
 
-        resultFiles.stream().forEach( resultFile -> {
+        resultFiles.forEach(resultFile -> {
             SubmissionPipelineUtils.FileType fileType = SubmissionPipelineUtils.FileType.getFileTypeFromFileName(resultFile);
             boolean isCompressFile = SubmissionPipelineUtils.isCompressedByExtension(resultFile);
-            if(fileType == SubmissionPipelineUtils.FileType.PRIDE && !isCompressFile){
+            if((fileType == SubmissionPipelineUtils.FileType.PRIDE || fileType == SubmissionPipelineUtils.FileType.MZTAB) && !isCompressFile){
                 try {
                     Optional<PrideFile> prideFile = findPrideFileInProjectFiles(resultFile, projectFiles);
                     if(prideFile.isPresent()){
@@ -257,7 +256,7 @@ public class PrideAnalysisAssayService {
                         closeBackupFiles(assayObjectMap);
 
                     }else{
-                        log.info(String.format("The file %s can be found in the result file list %s",resultFile, projectFiles.toString()));
+                        log.info(String.format("The file %s can be found in the result file list %s",resultFile, projectFiles));
                     }
 
                 } catch (Exception e) {
@@ -268,14 +267,13 @@ public class PrideAnalysisAssayService {
         });
     }
 
-    private void initGlobalSampleMetadata(PrideProject prideProject, List<String> spectraFiles) {
+    private void initGlobalSampleMetadata(PrideProject prideProject, Set<String> spectraFiles) {
         globalSampleProperties = new HashMap<>();
 
-        spectraFiles.stream().forEach(x-> {
+        spectraFiles.forEach(x-> {
             String fileName = SubmissionPipelineUtils.getFileNameNoExtension(x);
-            Set<Param> properties = new HashSet<>(prideProject.getOrganisms()
-                    .stream().map(y -> new Param("organism", y.getName()))
-                    .collect(Collectors.toSet()));
+            Set<Param> properties = prideProject.getOrganisms()
+                    .stream().map(y -> new Param("organism", y.getName())).collect(Collectors.toSet());
             globalSampleProperties.put(fileName, properties);
         });
         log.info(globalSampleProperties.toString());
@@ -303,9 +301,7 @@ public class PrideAnalysisAssayService {
     private Optional<PrideFile> findPrideFileInProjectFiles(String resultFile, List<PrideFile> projectFiles) {
         return projectFiles.stream().filter( x-> {
             String resultFileName = FilenameUtils.getName(resultFile);
-            if(x.getFileName().toLowerCase().contains(resultFileName.toLowerCase()))
-                return true;
-            return false;
+            return x.getFileName().toLowerCase().contains(resultFileName.toLowerCase());
         }).findFirst();
     }
 
@@ -385,7 +381,7 @@ public class PrideAnalysisAssayService {
     public void indexSpectraStep(String projectAccession, String resultFile, PrideFile prideFile,
                                  Map<String, Object> assayObjects,
                                  SubmissionPipelineUtils.FileType fileType,
-                                 List<String> spectraFiles) throws Exception {
+                                 Set<String> spectraFiles) throws Exception {
 
         long initSpectraStep = System.currentTimeMillis();
         log.info("indexSpectraStep assay file  -- " + assayObjects.get("modeller").toString());
@@ -399,7 +395,7 @@ public class PrideAnalysisAssayService {
             peptides = (List<ReportPeptide>) assayObjects.get("allPeptides");
 
         PIAModeller modeller = (PIAModeller) assayObjects.get("modeller");
-        JmzReaderSpectrumService service = null;
+        JmzReaderSpectrumService service;
 
         if (modeller != null && peptides.size() > 0) {
 
@@ -412,21 +408,23 @@ public class PrideAnalysisAssayService {
             AtomicInteger totalPSM = new AtomicInteger();
             AtomicInteger errorDeltaPSM = new AtomicInteger();
 
+            List<uk.ac.ebi.pride.utilities.util.Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> relatedFiles = null;
             if(fileType == SubmissionPipelineUtils.FileType.PRIDE)
                 service = JmzReaderSpectrumService.getInstance(Collections.singletonList(new uk.ac.ebi.pride.utilities.util.Tuple<>(resultFile, fileType)));
             else{
-                List<uk.ac.ebi.pride.utilities.util.Tuple<String, SubmissionPipelineUtils.FileType>> mongoRelatedFiles = new ArrayList<>(spectrumFiles.size());
-
+                 relatedFiles = getRelatedFiles(spectrumFiles, spectraFiles);
                 if (spectrumFiles.size() == 0) {
                     throw new Exception("No spectra file found");
                 }
-                List<uk.ac.ebi.pride.utilities.util.Tuple<String, SubmissionPipelineUtils.FileType>> finalMongoRelatedFilesFiltered = mongoRelatedFiles;
-                service = JmzReaderSpectrumService.getInstance(finalMongoRelatedFilesFiltered);
-                List<uk.ac.ebi.pride.utilities.util.Tuple<String, SubmissionPipelineUtils.FileType>> finalMongoRelatedFiles = finalMongoRelatedFilesFiltered;
+                service = JmzReaderSpectrumService.getInstance(relatedFiles.stream()
+                        .map(x-> new uk.ac.ebi.pride.utilities.util.Tuple<>(x.getFirst(), x.getThird()))
+                        .collect(Collectors.toList())
+                );
             }
 
             JmzReaderSpectrumService finalService = service;
             Map<String, List<PeptideSpectrumOverview>> peptideUsi = new HashMap<>();
+            List<Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> finalRelatedFiles = relatedFiles;
             peptides.forEach(peptide -> peptide.getPSMs().forEach(psm -> {
 
                 try {
@@ -445,7 +443,17 @@ public class PrideAnalysisAssayService {
                     if(fileType == SubmissionPipelineUtils.FileType.PRIDE){
                         fileSpectrum = finalService.getSpectrumById(resultFile, finalSpectrum.getSourceID());
                         fileName = FilenameUtils.getName(resultFile);
-                        usi = SubmissionPipelineUtils.buildUsi(projectAccession, fileName, (ReportPSM) psm);
+                        usi = SubmissionPipelineUtils.buildUsi(projectAccession, fileName, (ReportPSM) psm, psm.getSourceID(), SubmissionPipelineUtils.FileType.PRIDE);
+                        spectraUsi = SubmissionPipelineUtils.getSpectraUsiFromUsi(usi);
+                    }else{
+                        Triple<String, String, SubmissionPipelineUtils.FileType> spectrumID = SubmissionPipelineUtils.getSpectrumId(finalRelatedFiles, finalSpectrum);
+                        if(spectrumID.getThird() == SubmissionPipelineUtils.FileType.MGF){
+                            fileSpectrum = finalService.getSpectrumByIndex(spectrumID.getFirst(), spectrumID.getSecond());
+                        }else if(spectrumID.getThird() == SubmissionPipelineUtils.FileType.MZML){
+                            fileSpectrum = finalService.getSpectrumById(spectrumID.getFirst(), spectrumID.getSecond());
+                        }
+                        fileName = FilenameUtils.getName(spectrumID.getFirst());
+                        usi = SubmissionPipelineUtils.buildUsi(projectAccession, fileName, (ReportPSM) psm, spectrumID.getSecond(), spectrumID.getThird());
                         spectraUsi = SubmissionPipelineUtils.getSpectraUsiFromUsi(usi);
                     }
 
@@ -493,7 +501,7 @@ public class PrideAnalysisAssayService {
                             }
                         }
 
-                        double piaFDR = SubmissionPipelineUtils.getQValueLower(((ReportPSM) psm).getFDRScore().getValue(), fdrValues);
+                        double piaFDR = SubmissionPipelineUtils.getQValueLower(psm.getFDRScore().getValue(), fdrValues);
                         scores.add(new Param(CvTermReference.MS_PIA_PSM_LEVEL_FDRSCORE.getName(), String.valueOf(piaFDR)));
                         log.info(String.valueOf(piaQvalue));
 
@@ -554,7 +562,7 @@ public class PrideAnalysisAssayService {
 
                         boolean isValid = (boolean) assayObjects.get("isValid");
 
-                        int misssedCleavages = ((ReportPSM) psm).getMissedCleavages();
+                        int misssedCleavages = psm.getMissedCleavages();
                         if (misssedCleavages == -1){
                             misssedCleavages = uk.ac.ebi.pride.utilities.mol.MoleculeUtilities.calcMissedCleavages(psm.getSequence());
                         }
@@ -635,6 +643,38 @@ public class PrideAnalysisAssayService {
         }
     }
 
+    /**
+     * This function match the spectrum files referenced by the result file in the {@link SpectraData} with the
+     * file names provided by the user.
+     * @param spectraDataFiles {@link SpectraData} files related by the result file
+     * @param spectraFiles List of files provided by the users
+     * @return List of Tuple files.
+     */
+    private List<uk.ac.ebi.pride.utilities.util.Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> getRelatedFiles(List<SpectraData> spectraDataFiles, Set<String> spectraFiles) throws IOException {
+
+        if(Objects.isNull(spectraDataFiles) || Objects.isNull(spectraFiles) || spectraDataFiles.size() == 0 || spectraFiles.size() == 0){
+            throw new IOException("The number of files provided and SpectraData referenced in the result files are different");
+        }
+
+        List<uk.ac.ebi.pride.utilities.util.Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> files = spectraDataFiles.stream().map( x-> {
+            for(String filePath: spectraFiles){
+                String xFileName = FilenameUtils.getName(filePath);
+                String spectraDataFileName = FilenameUtils.getName(x.getLocation());
+                if(xFileName.equalsIgnoreCase(spectraDataFileName)){
+                    SubmissionPipelineUtils.FileType fileType = SubmissionPipelineUtils.FileType.getFileTypeFromFileName(xFileName);
+                    if(fileType != null)
+                        return new uk.ac.ebi.pride.utilities.util.Triple<>(filePath, x, fileType);
+                }
+            }
+            return null;
+        }).filter(Objects::nonNull).collect(Collectors.toList());
+
+        if (files.size() != spectraDataFiles.size())
+            throw new IOException("The number of files provided and SpectraData referenced in the result files are different");
+
+        return files;
+    }
+
 
     /**
      * This method use the SpectraDataFile to find the list of files in the PRIDE WS that correspond to those referenced
@@ -667,7 +707,7 @@ public class PrideAnalysisAssayService {
     private List<Tuple<CvParam, Integer>> getPtmsResults(List<ReportPeptide> modifiedPeptides) {
         List<Tuple<CvParam, Integer>> ptmsResultSet = new ArrayList<>();
         Set<CvParam> CvParamSet = new HashSet<>();
-        modifiedPeptides.stream().forEach(pep -> {
+        modifiedPeptides.forEach(pep -> {
             Collection<? extends IdentifiedModificationProvider> imp = convertPeptideModifications(pep.getModifications());
             imp.forEach(
                     ptm -> {
@@ -684,7 +724,7 @@ public class PrideAnalysisAssayService {
 
     private Set<CvParam> convertMapOfAnalysisSoftwareToSet(Map<String, AnalysisSoftware> analysisSoftwareMap) {
         Set<CvParam> analysisSoftwareSet = new HashSet<>();
-        analysisSoftwareMap.entrySet().stream().forEach(entry -> {
+        analysisSoftwareMap.entrySet().forEach(entry -> {
             AnalysisSoftware analysisSoftware = entry.getValue();
             analysisSoftwareSet.add(new CvParam(entry.getKey(), analysisSoftware.getId(), analysisSoftware.getSoftwareName().getCvParam().getValue()
                     , analysisSoftware.getName()));
@@ -792,7 +832,7 @@ public class PrideAnalysisAssayService {
                     log.error(e.getMessage(), e);
                     throw new Exception(e);
                 }
-                indexPeptideByProtein(protein, finalPeptides, (Map<Long, List<PeptideSpectrumOverview>>) assayObjects.get("peptideUsi")
+                indexPeptideByProtein(protein, finalPeptides, (Map<String, List<PeptideSpectrumOverview>>) assayObjects.get("peptideUsi")
                         , (Set<CvParam>) assayObjects.get("validationMethods"),
                         (BufferedWriter) assayObjects.get("peptideEvidenceBufferedWriter"), prideFile.getAccession(), isValid,
                         projectAccession, peptideQValues, peptideFDRs);
@@ -807,12 +847,12 @@ public class PrideAnalysisAssayService {
      * @param peptides Collection of identified highQualityPeptides in the experiment
      */
     private void indexPeptideByProtein(ReportProtein protein, List<ReportPeptide> peptides,
-                                       Map<Long, List<PeptideSpectrumOverview>> peptideUsi,
+                                       Map<String, List<PeptideSpectrumOverview>> peptideUsi,
                                        Set<CvParam> validationMethods,
                                        BufferedWriter peptideEvidenceBufferedWriter,
                                        String assayAccession, boolean isValid,
                                        String projectAccession, Set<Double> peptidesQValues,
-                                       Set<Double> peptideFDRs) throws Exception {
+                                       Set<Double> peptideFDRs) {
 
 
         for (ReportPeptide peptide : protein.getPeptides()) {
@@ -845,7 +885,9 @@ public class PrideAnalysisAssayService {
                     scores.add(peptideScore);
                 }
 
-                Set<PeptideSpectrumOverview> usiList = new HashSet<>(peptideUsi.get(firstPeptide.get().getStringID()));
+                Set<PeptideSpectrumOverview> usiList = null;
+                if(firstPeptide.get().getStringID() != null && peptideUsi.containsKey(firstPeptide.get().getStringID()))
+                    usiList = new HashSet<>(peptideUsi.get(firstPeptide.get().getStringID()));
 
                 int startPosition = 0;
                 int endPosition = 0;
@@ -1022,17 +1064,6 @@ public class PrideAnalysisAssayService {
         }
         return ptms;
 
-    }
-
-    private String getSpectraLocation(SpectraData spectraData) {
-        return null;
-    }
-
-    private CvParam updateValueOfMongoParamter(CvParam param, CvTermReference cvTerm, Integer value) {
-        if (param.getAccession().equalsIgnoreCase(cvTerm.getAccession())) {
-            param.setValue(String.valueOf(value));
-        }
-        return param;
     }
 
 }

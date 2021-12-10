@@ -1,8 +1,5 @@
 package uk.ac.ebi.pride.archive.indexer;
 
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import lombok.extern.slf4j.Slf4j;
@@ -21,13 +18,10 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import uk.ac.ebi.pride.archive.indexer.services.PrideAnalysisAssayService;
 import uk.ac.ebi.pride.archive.indexer.services.ws.PrideArchiveWebService;
-import uk.ac.ebi.pride.archive.spectra.configs.AWS3Configuration;
 import uk.ac.ebi.pride.archive.spectra.services.S3SpectralArchive;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @SpringBootApplication(exclude={MongoAutoConfiguration.class, MongoDataAutoConfiguration.class})
@@ -51,7 +45,6 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
 
     /**
      * usage outputDirectory filterFile directoryToProcess
-     *
      * @param args
      */
     public static void main(String[] args){
@@ -127,13 +120,15 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
             List<String> spectraFiles = args.getOptionValues("app.spectra-files");
             if(spectraFiles == null)
                 spectraFiles = new ArrayList<>();
-            analysisAssayService.writeAnalysisOutputFromResultFiles(projectAccession, resultFileOptions, spectraFiles, fileOutput);
-
+            else
+                spectraFiles = spectraFiles
+                        .stream()
+                        .flatMap( x-> Arrays.stream(x.split(",")))
+                        .collect(Collectors.toList());
+            analysisAssayService.writeAnalysisOutputFromResultFiles(projectAccession, resultFileOptions, new HashSet<>(spectraFiles), fileOutput);
         }
 
-        args.getOptionNames().forEach(optionName -> {
-            System.out.println(optionName + "=" + args.getOptionValues(optionName));
-        });
+        args.getOptionNames().forEach(optionName -> System.out.println(optionName + "=" + args.getOptionValues(optionName)));
 
     }
 

@@ -1,6 +1,5 @@
 package uk.ac.ebi.pride.archive.indexer.services.proteomics;
 
-import com.amazonaws.services.s3.AmazonS3;
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.ebi.pride.archive.indexer.utility.SubmissionPipelineUtils;
 import uk.ac.ebi.pride.tools.jmzreader.JMzReader;
@@ -23,15 +22,19 @@ import java.util.stream.Collectors;
 @Slf4j
 public class JmzReaderSpectrumService {
 
-    /**
-     * Map of all readers containing the spectra
-     */
+    // Map of all readers containing the spectra
     Map<String, JMzReader> readers;
 
+    /**
+     * Create a service from a list of files with the corresponding file types {@link uk.ac.ebi.pride.archive.indexer.utility.SubmissionPipelineUtils.FileType}
+     * @param spectrumFileList List of Tuple of filePath and corresponding file type
+     * @throws JMzReaderException
+     * @throws MzXMLParsingException
+     */
     private JmzReaderSpectrumService(List<Tuple<String, SubmissionPipelineUtils.FileType>> spectrumFileList) throws JMzReaderException, MzXMLParsingException {
         this.readers = new HashMap<>();
         for (Tuple<String, SubmissionPipelineUtils.FileType> entry : spectrumFileList) {
-            String key = (String) entry.getKey();
+            String key = entry.getKey();
             SubmissionPipelineUtils.FileType value = entry.getValue();
 
             if (value == SubmissionPipelineUtils.FileType.MGF) {
@@ -77,7 +80,7 @@ public class JmzReaderSpectrumService {
             if (spec == null){
                 List<Tuple<String, String>> spectra = reader.getSpectraIds()
                         .stream().filter(x -> x.contains(id))
-                        .map(x -> new Tuple<String, String>(x,x)).collect(Collectors.toList());
+                        .map(x -> new Tuple<>(x, x)).collect(Collectors.toList());
                 if(spectra.size() == 1)
                     spec =  reader.getSpectrumById(spectra.get(0).getValue());
                 else{
@@ -102,11 +105,19 @@ public class JmzReaderSpectrumService {
         }
     }
 
-    public Spectrum getSpectrumByIndex(String filePath, int id) throws JMzReaderException {
+    /**
+     * Read Spectrum from indexed files such as MGF or MS2
+     * @param filePath FilePath of the file
+     * @param id index to be search
+     * @return Spectrum found in the file
+     * @throws JMzReaderException
+     */
+    public Spectrum getSpectrumByIndex(String filePath, String id) throws JMzReaderException {
         JMzReader reader = readers.get(filePath);
         try{
-            return reader.getSpectrumByIndex(id);
-        }catch (NumberFormatException e){
+            int index = Integer.parseInt(id);
+            return reader.getSpectrumByIndex(index);
+        }catch (Exception e){
             throw new JMzReaderException("Error parsing the following Accession -- " + id);
         }
     }

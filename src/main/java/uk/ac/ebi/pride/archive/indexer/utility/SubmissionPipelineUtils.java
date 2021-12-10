@@ -1,6 +1,8 @@
 package uk.ac.ebi.pride.archive.indexer.utility;
 
+import de.mpc.PD.Spectra;
 import de.mpc.pia.intermediate.Modification;
+import de.mpc.pia.intermediate.PeptideSpectrumMatch;
 import de.mpc.pia.modeller.psm.ReportPSM;
 import org.apache.commons.io.FilenameUtils;
 import uk.ac.ebi.jmzidml.model.mzidml.FileFormat;
@@ -156,9 +158,7 @@ public class SubmissionPipelineUtils {
         List<Triple<String, SpectraData, FileType>> spectraFileMap = new ArrayList<>();
 
         for (String file : msIdentMLFiles) {
-            Iterator iterator = spectraDataList.iterator();
-            while (iterator.hasNext()) {
-                SpectraData spectraData = (SpectraData) iterator.next();
+            for (SpectraData spectraData : spectraDataList) {
                 if (spectraData.getLocation() != null && spectraData.getLocation().toLowerCase().contains(file.toLowerCase())) {
                     spectraFileMap.add(new Triple<>(buildPath + file, spectraData,
                             FileType.getFileTypeFromSpectraData(spectraData)));
@@ -171,60 +171,69 @@ public class SubmissionPipelineUtils {
         return spectraFileMap;
     }
 
-    public static String getSpectrumId(SpectraData spectraData, ReportPSM psm) {
-        SpecIdFormat fileIdFormat = getSpectraDataIdFormat(spectraData.getSpectrumIDFormat().getCvParam().getAccession());
+    /**
+     * The following method get for one spectrum, Triple<String, String, FileType>. The elements of the Triple are:
+     *  - First: FileName provided by the user
+     *  - Second: Accession of the spectrum in the file
+     *  - Third: FileType
+     * @param spectraDataList All the files
+     * @param psm PSM
+     * @return Triple
+     * @throws IOException
+     */
+    public static Triple<String, String, SubmissionPipelineUtils.FileType> getSpectrumId(List<Triple<String, SpectraData, FileType>> spectraDataList, PeptideSpectrumMatch psm) throws IOException {
 
-        if (fileIdFormat == SpecIdFormat.MASCOT_QUERY_NUM) {
-            String rValueStr = psm.getSourceID().replaceAll("query=", "");
+        Optional<Triple<String, SpectraData, FileType>> spectraDataOption = spectraDataList.stream().filter(x -> psm.getSpectrumIdentification()
+                .getInputSpectra()
+                .stream()
+                .anyMatch(y -> y.getSpectraDataRef().equalsIgnoreCase(x.getSecond().getId())))
+                .findAny();
+        if(!spectraDataOption.isPresent())
+            throw new IOException(String.format("The psm reference can't be found in the list of files -- %s", psm.toString()));
+
+        Triple<String, SpectraData, FileType> spectraData = spectraDataOption.get();
+        SpecIdFormat fileIdFormat = getSpectraDataIdFormat(spectraData.getSecond().getSpectrumIDFormat().getCvParam().getAccession());
+
+        if (fileIdFormat == SpecIdFormat.MASCOT_QUERY_NUM || fileIdFormat == SpecIdFormat.MULTI_PEAK_LIST_NATIVE_ID) {
+            String rValueStr = psm.getSourceID().replaceAll("query=", "").replaceAll("index=", "");
             String id = null;
             if (rValueStr.matches(INTEGER)) {
                 id = Integer.toString(Integer.parseInt(rValueStr) + 1);
             }
-            return id;
-        } else if (fileIdFormat == SpecIdFormat.MULTI_PEAK_LIST_NATIVE_ID) {
-            String rValueStr = psm.getSourceID().replaceAll("index=", "");
-            String id;
-            if (rValueStr.matches(INTEGER)) {
-                id = Integer.toString(Integer.parseInt(rValueStr) + 1);
-                return id;
-            }
-            return psm.getSourceID();
-        } else if (fileIdFormat == SpecIdFormat.SINGLE_PEAK_LIST_NATIVE_ID) {
-            return psm.getSourceID().replaceAll("file=", "");
-        } else if (fileIdFormat == SpecIdFormat.MZML_ID) {
-            return psm.getSourceID().replaceAll("mzMLid=", "");
-        } else if (fileIdFormat == SpecIdFormat.SCAN_NUMBER_NATIVE_ID) {
-            return psm.getSourceID().replaceAll("scan=", "");
+            return new Triple<String, String, FileType>(spectraData.getFirst(), id, spectraData.getThird());
+//        } else if (fileIdFormat == SpecIdFormat.SINGLE_PEAK_LIST_NATIVE_ID) {
+//            return psm.getSourceID().replaceAll("file=", "");
+//        } else if (fileIdFormat == SpecIdFormat.MZML_ID) {
+//            return psm.getSourceID().replaceAll("mzMLid=", "");
+//        } else if (fileIdFormat == SpecIdFormat.SCAN_NUMBER_NATIVE_ID) {
+//            return psm.getSourceID().replaceAll("scan=", "");
         } else if (fileIdFormat == SpecIdFormat.SPECTRUM_NATIVE_ID) {
             String[] partsScan = psm.getSourceID().split(" ");
-            Optional<String> scanOptional = Arrays.asList(partsScan).stream().filter(x -> x.contains("scan=")).findFirst();
-            if(scanOptional.isPresent()){
-                return scanOptional.get().replaceAll("scan=", "");
-            }else{
-                return psm.getSourceID();
-            }
+            Optional<String> scanOptional = Arrays.stream(partsScan).filter(x -> x.contains("scan=")).findFirst();
+            String id = scanOptional.map(s -> s.replaceAll("scan=", "")).orElseGet(psm::getSourceID);
+            return new Triple<String, String, FileType>(spectraData.getFirst(), id, spectraData.getThird());
         } else {
-            return psm.getSpectrumTitle();
+            return new Triple<>(spectraData.getFirst(), psm.getSourceID(),spectraData.getThird());
         }
     }
 
-    public static String buildUsi(String projectAccession, Triple<String, SpectraData, FileType> refeFile, ReportPSM psm) {
-        Constants.ScanType scanType = Constants.ScanType.INDEX;
-        SpecIdFormat fileIFormat = getSpectraDataIdFormat(refeFile.getSecond().getSpectrumIDFormat().getCvParam().getAccession());
-        String spectrumID = getSpectrumId(refeFile.getSecond(), psm);
-        if (fileIFormat == SpecIdFormat.MASCOT_QUERY_NUM || fileIFormat == SpecIdFormat.MULTI_PEAK_LIST_NATIVE_ID) {
-            scanType = Constants.ScanType.INDEX;
-        } else if (fileIFormat == SpecIdFormat.MZML_ID) {
-            scanType = Constants.ScanType.SCAN;
-            String[] scanStrings = spectrumID.split("scan=");
-            spectrumID = scanStrings[1];
-        } else if(fileIFormat == SpecIdFormat.SPECTRUM_NATIVE_ID || fileIFormat == SpecIdFormat.SCAN_NUMBER_NATIVE_ID) {
-            scanType = Constants.ScanType.SCAN;
-        }
-        Path p = Paths.get(refeFile.getFirst());
-        String fileName = p.getFileName().toString();
-        return Constants.SPECTRUM_S3_HEADER + projectAccession + ":" + fileName + ":" + scanType.getName() + ":" + spectrumID + ":" + encodePSM(psm.getSequence(), psm.getModifications(), psm.getCharge());
-    }
+//    public static String buildUsi(String projectAccession, Triple<String, SpectraData, FileType> refeFile, ReportPSM psm) {
+//        Constants.ScanType scanType = Constants.ScanType.INDEX;
+//        SpecIdFormat fileIFormat = getSpectraDataIdFormat(refeFile.getSecond().getSpectrumIDFormat().getCvParam().getAccession());
+//        String spectrumID = getSpectrumId(refeFile.getSecond(), psm);
+//        if (fileIFormat == SpecIdFormat.MASCOT_QUERY_NUM || fileIFormat == SpecIdFormat.MULTI_PEAK_LIST_NATIVE_ID) {
+//            scanType = Constants.ScanType.INDEX;
+//        } else if (fileIFormat == SpecIdFormat.MZML_ID) {
+//            scanType = Constants.ScanType.SCAN;
+//            String[] scanStrings = spectrumID.split("scan=");
+//            spectrumID = scanStrings[1];
+//        } else if(fileIFormat == SpecIdFormat.SPECTRUM_NATIVE_ID || fileIFormat == SpecIdFormat.SCAN_NUMBER_NATIVE_ID) {
+//            scanType = Constants.ScanType.SCAN;
+//        }
+//        Path p = Paths.get(refeFile.getFirst());
+//        String fileName = p.getFileName().toString();
+//        return Constants.SPECTRUM_S3_HEADER + projectAccession + ":" + fileName + ":" + scanType.getName() + ":" + spectrumID + ":" + encodePSM(psm.getSequence(), psm.getModifications(), psm.getCharge());
+//    }
 
     public static String getSpectraUsiFromUsi(String usi){
         String spectraUsi;
@@ -256,9 +265,11 @@ public class SubmissionPipelineUtils {
      * @param psm              PSM
      * @return
      */
-    public static String buildUsi(String projectAccession, String fileName, ReportPSM psm) {
+    public static String buildUsi(String projectAccession, String fileName, ReportPSM psm, String id, FileType scan) {
         Constants.ScanType scanType = Constants.ScanType.INDEX;
-        return Constants.SPECTRUM_S3_HEADER + projectAccession + ":" + fileName + ":" + scanType.getName() + ":" + psm.getSourceID() + ":" + encodePSM(psm.getSequence(), psm.getModifications(), psm.getCharge());
+        if(scan == FileType.MZML)
+            scanType = Constants.ScanType.SCAN;
+        return Constants.SPECTRUM_S3_HEADER + projectAccession + ":" + fileName + ":" + scanType.getName() + ":" + id + ":" + encodePSM(psm.getSequence(), psm.getModifications(), psm.getCharge());
     }
 
     public static String encodePSM(String sequence, Map<Integer, Modification> ptms, Integer charge) {
@@ -271,11 +282,11 @@ public class SubmissionPipelineUtils {
         if (ptms != null && ptms.size() > 0) {
             char[] sequenceList = sequence.toCharArray();
             if (ptms.containsKey(0))
-                stringBuilder.append("[" + ptms.get(0).getAccession() + "]");
+                stringBuilder.append("[").append(ptms.get(0).getAccession()).append("]");
             for (int i = 0; i < sequenceList.length; i++) {
                 stringBuilder.append(sequenceList[i]);
                 if (ptms.containsKey(i + 1)) {
-                    stringBuilder.append("[" + ptms.get(i + 1).getAccession() + "]");
+                    stringBuilder.append("[").append(ptms.get(i + 1).getAccession()).append("]");
                 }
             }
 
@@ -289,9 +300,7 @@ public class SubmissionPipelineUtils {
             }
             finalSequence = stringBuilder.toString();
         }
-
         return finalSequence;
-
     }
 
 
