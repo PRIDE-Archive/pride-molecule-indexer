@@ -24,8 +24,6 @@ import java.util.HashMap;
 @Slf4j
 public class PIAModelerService {
 
-    private static final Long MERGE_FILE_ID = 1L;
-
 
     public PIAModelerService() {
     }
@@ -55,10 +53,10 @@ public class PIAModelerService {
             piaModeller.getPSMModeller().setAllDecoyPattern("searchengine");
             piaModeller.getPSMModeller().setAllTopIdentifications(0);
 
-            piaModeller.getPSMModeller().addFilter(1L, new PSMScoreFilter(FilterComparator.less_equal,
+            piaModeller.getPSMModeller().addFilter(0L, new PSMScoreFilter(FilterComparator.less_equal,
                     false, psmQThreshold, ScoreModelEnum.PSM_LEVEL_FDR_SCORE.getShortName()));
 
-            piaModeller.getPSMModeller().addFilter(1L, RegisteredFilters.PSM_SOURCE_ID_FILTER
+            piaModeller.getPSMModeller().addFilter(0L, RegisteredFilters.PSM_SOURCE_ID_FILTER
                     .newInstanceOf(FilterComparator.equal,"index=null" ,true));
 
             piaModeller.getPSMModeller().calculateAllFDR();
@@ -88,7 +86,7 @@ public class PIAModelerService {
                     .updateFDRData(FDRData.DecoyStrategy.SEARCHENGINE, "searchengine", proteinQThreshold);
             piaModeller.getProteinModeller().updateDecoyStates();
             piaModeller.getProteinModeller().calculateFDR();
-            piaModeller.getPeptideModeller().calculateFDR(1L);
+            piaModeller.getPeptideModeller().calculateFDR(0L);
 
         }
 
