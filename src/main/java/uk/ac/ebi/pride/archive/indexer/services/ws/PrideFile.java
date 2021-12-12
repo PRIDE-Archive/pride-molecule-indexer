@@ -10,7 +10,6 @@ import java.util.Date;
 import java.util.List;
 
 @JsonIgnoreProperties
-@Data
 public class PrideFile {
 
     @JsonProperty
@@ -31,6 +30,30 @@ public class PrideFile {
 
     @JsonProperty
     private CvParamProvider fileCategory;
+
+    public List<String> getProjectAccessions() {
+        return projectAccessions;
+    }
+
+    public String getAccession() {
+        return accession;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public List<CvParamProvider> getPublicFileLocations() {
+        return publicFileLocations;
+    }
+
+    public Date getPublicationDate() {
+        return publicationDate;
+    }
+
+    public CvParamProvider getFileCategory() {
+        return fileCategory;
+    }
 
     @Override
     public String toString() {

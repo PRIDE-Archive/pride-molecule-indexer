@@ -5,15 +5,11 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import uk.ac.ebi.pride.archive.dataprovider.param.CvParam;
-import uk.ac.ebi.pride.ws.pride.models.*;
-
-
 
 import javax.xml.bind.annotation.XmlElement;
 import java.util.*;
 
 @JsonIgnoreProperties
-@Data
 public class PrideProject {
 
     @XmlElement
@@ -36,6 +32,29 @@ public class PrideProject {
     @JsonFormat(pattern="yyyy-MM-dd")
     private Date publicationDate;
 
+    public String getAccession() {
+        return accession;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public List<CvParam> getOrganisms() {
+        return organisms;
+    }
+
+    public List<CvParam> getOrganismParts() {
+        return organismParts;
+    }
+
+    public List<CvParam> getDiseases() {
+        return diseases;
+    }
+
+    public Date getPublicationDate() {
+        return publicationDate;
+    }
 
     @Override
     public String toString() {

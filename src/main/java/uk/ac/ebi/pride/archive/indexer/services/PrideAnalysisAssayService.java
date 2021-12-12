@@ -244,7 +244,10 @@ public class PrideAnalysisAssayService {
         resultFiles.forEach(resultFile -> {
             SubmissionPipelineUtils.FileType fileType = SubmissionPipelineUtils.FileType.getFileTypeFromFileName(resultFile);
             boolean isCompressFile = SubmissionPipelineUtils.isCompressedByExtension(resultFile);
-            if((fileType == SubmissionPipelineUtils.FileType.PRIDE || fileType == SubmissionPipelineUtils.FileType.MZTAB) && !isCompressFile){
+            if((fileType == SubmissionPipelineUtils.FileType.PRIDE
+                    || fileType == SubmissionPipelineUtils.FileType.MZTAB
+                    || fileType == SubmissionPipelineUtils.FileType.MZID
+            ) && !isCompressFile){
                 try {
                     Optional<PrideFile> prideFile = findPrideFileInProjectFiles(resultFile, projectFiles);
                     if(prideFile.isPresent()){

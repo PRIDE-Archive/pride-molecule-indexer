@@ -127,9 +127,8 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
                         .collect(Collectors.toList());
 
             List<String> sampleFileOptions = args.getOptionValues("app.sample-file");
-            if(sampleFileOptions.size() == 0){
-                    throw new Exception("Sample metadata files including sample to data relationship " +
-                        "generate-index-files with parameter --app.sample-file");
+            if(sampleFileOptions == null){
+                sampleFileOptions = new ArrayList<>();
             }
 
             analysisAssayService.writeAnalysisOutputFromResultFiles(projectAccession, resultFileOptions, new HashSet<>(spectraFiles), new HashSet<>(sampleFileOptions), fileOutput);
