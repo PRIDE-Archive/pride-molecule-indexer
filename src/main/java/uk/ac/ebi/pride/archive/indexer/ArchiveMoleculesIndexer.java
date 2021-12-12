@@ -113,7 +113,7 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
 
             List<String> resultFileOptions = args.getOptionValues("app.result-file");
             if(resultFileOptions.size() == 0){
-                throw new Exception("Project accession should be provided for command " +
+                throw new Exception("Result files must be provided for " +
                         "generate-index-files with parameter --app.result-file");
             }
 
@@ -125,7 +125,14 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
                         .stream()
                         .flatMap( x-> Arrays.stream(x.split(",")))
                         .collect(Collectors.toList());
-            analysisAssayService.writeAnalysisOutputFromResultFiles(projectAccession, resultFileOptions, new HashSet<>(spectraFiles), fileOutput);
+
+            List<String> sampleFileOptions = args.getOptionValues("app.sample-file");
+            if(sampleFileOptions.size() == 0){
+                    throw new Exception("Sample metadata files including sample to data relationship " +
+                        "generate-index-files with parameter --app.sample-file");
+            }
+
+            analysisAssayService.writeAnalysisOutputFromResultFiles(projectAccession, resultFileOptions, new HashSet<>(spectraFiles), new HashSet<String>(sampleFileOptions), fileOutput);
         }
 
         args.getOptionNames().forEach(optionName -> System.out.println(optionName + "=" + args.getOptionValues(optionName)));

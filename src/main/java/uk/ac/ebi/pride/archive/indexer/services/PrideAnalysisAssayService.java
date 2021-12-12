@@ -93,8 +93,8 @@ public class PrideAnalysisAssayService {
         return piaModellerService;
     }
 
-    Map<String, List<Param>> sampleProperties;
-    Map<String, Set<Param>> globalSampleProperties;
+    Map<String, Set<Param>> sampleProperties = new HashMap<>();
+    Map<String, Set<Param>> globalSampleProperties = new HashMap<>();
 
     /**
      * Write the Related files to one Result file
@@ -225,7 +225,7 @@ public class PrideAnalysisAssayService {
     }
 
 
-    public void writeAnalysisOutputFromResultFiles(String projectAccession, List<String> resultFiles, Set<String> spectraFiles, String folderOutput) throws IOException {
+    public void writeAnalysisOutputFromResultFiles(String projectAccession, List<String> resultFiles, HashSet<String> spectraFiles, Set<String> sampleFiles, String folderOutput) throws IOException {
 
         Optional<PrideProject> projectOption = prideArchiveWebService.findByAccession(projectAccession);
         if(!projectOption.isPresent())
@@ -237,7 +237,10 @@ public class PrideAnalysisAssayService {
             throw new IOException("Not files found in the PRIDE WS for accession: " + projectAccession);
         }
 
-        initGlobalSampleMetadata(projectOption.get(), spectraFiles);
+        initGlobalSampleMetadata(projectOption.get(), spectraFiles, sampleFiles,
+                resultFiles.stream()
+                        .filter( x-> SubmissionPipelineUtils.FileType.getFileTypeFromFileName(x) == SubmissionPipelineUtils.FileType.PRIDE)
+                        .collect(Collectors.toSet()));
 
         resultFiles.forEach(resultFile -> {
             SubmissionPipelineUtils.FileType fileType = SubmissionPipelineUtils.FileType.getFileTypeFromFileName(resultFile);
@@ -269,13 +272,77 @@ public class PrideAnalysisAssayService {
         });
     }
 
-    private void initGlobalSampleMetadata(PrideProject prideProject, Set<String> spectraFiles) {
-        globalSampleProperties = new HashMap<>();
+    /**
+     * Parse sample properties parse from SDRF files or from the project properties. The sample metadata will be used from
+     * the sample files if provided.
+     * @param prideProject Pride Project
+     * @param spectraFiles SpectraFiles
+     * @param sampleProperties Sample files.
+     */
+    private void initGlobalSampleMetadata(PrideProject prideProject, Set<String> spectraFiles, Set<String> sampleProperties, Set<String> resultFiles) {
+
+        if(sampleProperties != null){
+            sampleProperties.forEach( sampleFile -> {
+                try {
+                    BufferedReader br = new BufferedReader(new FileReader(sampleFile));
+                    String line = br.readLine();
+                    List<String> header = Arrays.asList(line.split("\t"));
+                    List<List<String>> samples = new ArrayList<>();
+                    while (line != null) {
+                        line = br.readLine();
+                        if(line != null)
+                            samples.add(Arrays.asList(line.split("\t")));
+                    }
+                    int fileIndex = header.indexOf("comment[data file]");
+                    List<Integer> sampleIndexes = new ArrayList<>();
+                    for(int i=0; i < header.size(); i++)
+                        if(header.get(i).contains("characteristics"))
+                            sampleIndexes.add(i);
+                    samples.stream().forEach( sample -> {
+                        String sampleFileName = SubmissionPipelineUtils
+                                .getFileNameNoExtension(sample.get(fileIndex));
+                        Set<Param> fileSamples = new HashSet<>();
+                        sampleIndexes.forEach(index -> {
+                            String key = header.get(index);
+                            key = key.substring(key.indexOf("[")+1,key.indexOf("]"));
+                            String value = sample.get(index);
+                            Param param = new Param(key, value);
+                            fileSamples.add(param);
+                        });
+                        if(!this.sampleProperties.containsKey(sampleFileName))
+                            this.sampleProperties.put(sampleFileName, fileSamples);
+                    });
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+
+        if(resultFiles != null && resultFiles.size() > 0){
+            if(spectraFiles == null)
+                spectraFiles = new HashSet<>();
+            spectraFiles.addAll(resultFiles);
+        }
 
         spectraFiles.forEach(x-> {
             String fileName = SubmissionPipelineUtils.getFileNameNoExtension(x);
-            Set<Param> properties = prideProject.getOrganisms()
-                    .stream().map(y -> new Param("organism", y.getName())).collect(Collectors.toSet());
+            Set<Param> properties = new HashSet<>();
+            if(prideProject.getOrganisms() != null)
+                properties = prideProject.getOrganisms()
+                    .stream()
+                    .map(y -> new Param("organism", y.getName()))
+                    .collect(Collectors.toSet());
+            if(prideProject.getOrganismParts() != null)
+                properties.addAll(prideProject.getOrganismParts()
+                    .stream()
+                    .map(y -> new Param("organism part", y.getName()))
+                    .collect(Collectors.toSet()));
+            if(prideProject.getDiseases() != null)
+                properties.addAll(prideProject.getDiseases()
+                    .stream()
+                    .map(y -> new Param("disease", y.getName()))
+                    .collect(Collectors.toSet()));
+
             globalSampleProperties.put(fileName, properties);
         });
         log.info(globalSampleProperties.toString());
@@ -458,6 +525,13 @@ public class PrideAnalysisAssayService {
                         spectraUsi = SubmissionPipelineUtils.getSpectraUsiFromUsi(usi);
                     }
 
+                    Set<Param> localSampleProperties = new HashSet<>();
+                    String fileNameNoExtension = SubmissionPipelineUtils.getFileNameNoExtension(fileName);
+                    if(sampleProperties.containsKey(fileNameNoExtension))
+                        localSampleProperties = sampleProperties.get(fileNameNoExtension);
+                    else if(globalSampleProperties.containsKey(fileNameNoExtension))
+                        localSampleProperties = globalSampleProperties.get(fileNameNoExtension);
+
                     if(fileSpectrum != null){
 
                         log.info(fileSpectrum.getId() + " " + (psm.getMassToCharge() - fileSpectrum.getPrecursorMZ()));
@@ -592,6 +666,7 @@ public class PrideAnalysisAssayService {
                                 .properties(properties)
                                 .bestSearchEngineScore(bestSearchEngineScore)
                                 .scores(scores)
+                                .sampleProperties(localSampleProperties)
                                 .build();
 
                         PrideMongoPsmSummaryEvidence psmMongo = PrideMongoPsmSummaryEvidence
