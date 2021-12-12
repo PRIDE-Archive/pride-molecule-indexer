@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 public class JmzReaderSpectrumService {
 
     // Map of all readers containing the spectra
-    Map<String, JMzReader> readers;
+    final Map<String, JMzReader> readers;
 
     /**
      * Create a service from a list of files with the corresponding file types {@link uk.ac.ebi.pride.archive.indexer.utility.SubmissionPipelineUtils.FileType}

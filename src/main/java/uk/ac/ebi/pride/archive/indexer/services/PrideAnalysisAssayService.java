@@ -24,7 +24,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
 import uk.ac.ebi.jmzidml.model.mzidml.AbstractParam;
-import uk.ac.ebi.jmzidml.model.mzidml.AnalysisSoftware;
 import uk.ac.ebi.jmzidml.model.mzidml.SpectraData;
 import uk.ac.ebi.pride.archive.dataprovider.common.Tuple;
 import uk.ac.ebi.pride.archive.dataprovider.data.peptide.PSMProvider;
@@ -85,7 +84,7 @@ public class PrideAnalysisAssayService {
     @Value("${qFilterProteinFDR:#{1.0}}")
     private Double qFilterProteinFDR;
 
-    DecimalFormat df = new DecimalFormat("###.#####");
+    final DecimalFormat df = new DecimalFormat("###.#####");
 
     @Bean
     PIAModelerService getPIAModellerService() {
@@ -93,8 +92,8 @@ public class PrideAnalysisAssayService {
         return piaModellerService;
     }
 
-    Map<String, Set<Param>> sampleProperties = new HashMap<>();
-    Map<String, Set<Param>> globalSampleProperties = new HashMap<>();
+    final Map<String, Set<Param>> sampleProperties = new HashMap<>();
+    final Map<String, Set<Param>> globalSampleProperties = new HashMap<>();
 
     /**
      * Write the Related files to one Result file
@@ -298,7 +297,7 @@ public class PrideAnalysisAssayService {
                     for(int i=0; i < header.size(); i++)
                         if(header.get(i).contains("characteristics"))
                             sampleIndexes.add(i);
-                    samples.stream().forEach( sample -> {
+                    samples.forEach(sample -> {
                         String sampleFileName = SubmissionPipelineUtils
                                 .getFileNameNoExtension(sample.get(fileIndex));
                         Set<Param> fileSamples = new HashSet<>();
@@ -470,7 +469,7 @@ public class PrideAnalysisAssayService {
             List<SpectraData> spectrumFiles = new ArrayList<>(modeller.getSpectraData().values());
 
             /** Qvalues and FDR values will be used as the main bestSearchEngine Score **/
-            Set<Double> qvalues = psms.stream().map(x -> x.getQValue()).collect(Collectors.toSet());
+            Set<Double> qvalues = psms.stream().map(ReportPSMSet::getQValue).collect(Collectors.toSet());
             Set<Double> fdrValues = psms.stream().map(x -> x.getFDRScore().getValue()).collect(Collectors.toSet());
 
             AtomicInteger totalPSM = new AtomicInteger();
@@ -498,7 +497,7 @@ public class PrideAnalysisAssayService {
                 try {
                     PeptideSpectrumMatch spectrum = null;
                     if (psm instanceof ReportPSM)
-                        spectrum = ((ReportPSM) psm).getSpectrum();
+                        spectrum = psm.getSpectrum();
 
                     totalPSM.set(totalPSM.get() + 1);
 
@@ -511,8 +510,7 @@ public class PrideAnalysisAssayService {
                     if(fileType == SubmissionPipelineUtils.FileType.PRIDE){
                         fileSpectrum = finalService.getSpectrumById(resultFile, finalSpectrum.getSourceID());
                         fileName = FilenameUtils.getName(resultFile);
-                        usi = SubmissionPipelineUtils.buildUsi(projectAccession, fileName, (ReportPSM) psm, psm.getSourceID(), SubmissionPipelineUtils.FileType.PRIDE);
-                        spectraUsi = SubmissionPipelineUtils.getSpectraUsiFromUsi(usi);
+                        usi = SubmissionPipelineUtils.buildUsi(projectAccession, fileName, psm, psm.getSourceID(), SubmissionPipelineUtils.FileType.PRIDE);
                     }else{
                         Triple<String, String, SubmissionPipelineUtils.FileType> spectrumID = SubmissionPipelineUtils.getSpectrumId(finalRelatedFiles, finalSpectrum);
                         if(spectrumID.getThird() == SubmissionPipelineUtils.FileType.MGF){
@@ -521,9 +519,9 @@ public class PrideAnalysisAssayService {
                             fileSpectrum = finalService.getSpectrumById(spectrumID.getFirst(), spectrumID.getSecond());
                         }
                         fileName = FilenameUtils.getName(spectrumID.getFirst());
-                        usi = SubmissionPipelineUtils.buildUsi(projectAccession, fileName, (ReportPSM) psm, spectrumID.getSecond(), spectrumID.getThird());
-                        spectraUsi = SubmissionPipelineUtils.getSpectraUsiFromUsi(usi);
+                        usi = SubmissionPipelineUtils.buildUsi(projectAccession, fileName, psm, spectrumID.getSecond(), spectrumID.getThird());
                     }
+                    spectraUsi = SubmissionPipelineUtils.getSpectraUsiFromUsi(usi);
 
                     Set<Param> localSampleProperties = new HashSet<>();
                     String fileNameNoExtension = SubmissionPipelineUtils.getFileNameNoExtension(fileName);
@@ -685,6 +683,7 @@ public class PrideAnalysisAssayService {
                                 .precursorMass(psm.getMassToCharge())
                                 .modifiedPeptideSequence(SubmissionPipelineUtils
                                         .encodePeptide(psm.getSequence(), psm.getModifications()))
+                                .sampleProperties(localSampleProperties)
                                 .build();
 
 //                        log.info(psmMongo.toString());
@@ -780,35 +779,9 @@ public class PrideAnalysisAssayService {
                 .collect(Collectors.toList());
     }
 
-    private List<Tuple<CvParam, Integer>> getPtmsResults(List<ReportPeptide> modifiedPeptides) {
-        List<Tuple<CvParam, Integer>> ptmsResultSet = new ArrayList<>();
-        Set<CvParam> CvParamSet = new HashSet<>();
-        modifiedPeptides.forEach(pep -> {
-            Collection<? extends IdentifiedModificationProvider> imp = convertPeptideModifications(pep.getModifications());
-            imp.forEach(
-                    ptm -> {
-                        CvParam cvParam = (CvParam) ptm.getModificationCvTerm();
-                        if (!CvParamSet.contains(cvParam)) {
-                            ptmsResultSet.add(new Tuple(cvParam, 0));
-                            CvParamSet.add(cvParam);
-                        }
-                    }
-            );
-        });
-        return ptmsResultSet;
-    }
-
-    private Set<CvParam> convertMapOfAnalysisSoftwareToSet(Map<String, AnalysisSoftware> analysisSoftwareMap) {
-        Set<CvParam> analysisSoftwareSet = new HashSet<>();
-        analysisSoftwareMap.entrySet().forEach(entry -> {
-            AnalysisSoftware analysisSoftware = entry.getValue();
-            analysisSoftwareSet.add(new CvParam(entry.getKey(), analysisSoftware.getId(), analysisSoftware.getSoftwareName().getCvParam().getValue()
-                    , analysisSoftware.getName()));
-        });
-        return analysisSoftwareSet;
-    }
 
     public void proteinPeptideIndexStep(PrideFile prideFile, Map<String, Object> assayObjects, String projectAccession) throws Exception {
+
         long initInsertPeptides = System.currentTimeMillis();
 
         if (assayObjects.get("modeller") != null) {

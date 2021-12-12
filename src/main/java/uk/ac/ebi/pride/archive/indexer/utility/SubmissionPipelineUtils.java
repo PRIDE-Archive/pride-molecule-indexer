@@ -1,6 +1,5 @@
 package uk.ac.ebi.pride.archive.indexer.utility;
 
-import de.mpc.PD.Spectra;
 import de.mpc.pia.intermediate.Modification;
 import de.mpc.pia.intermediate.PeptideSpectrumMatch;
 import de.mpc.pia.modeller.psm.ReportPSM;
@@ -16,8 +15,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
@@ -119,7 +116,7 @@ public class SubmissionPipelineUtils {
         GZIP("gz"),
         ZIP("zip");
 
-        String extension;
+        final String extension;
 
         Compress_Type(String extension) {
             this.extension = extension;
@@ -200,7 +197,7 @@ public class SubmissionPipelineUtils {
             if (rValueStr.matches(INTEGER)) {
                 id = Integer.toString(Integer.parseInt(rValueStr) + 1);
             }
-            return new Triple<String, String, FileType>(spectraData.getFirst(), id, spectraData.getThird());
+            return new Triple<>(spectraData.getFirst(), id, spectraData.getThird());
 //        } else if (fileIdFormat == SpecIdFormat.SINGLE_PEAK_LIST_NATIVE_ID) {
 //            return psm.getSourceID().replaceAll("file=", "");
 //        } else if (fileIdFormat == SpecIdFormat.MZML_ID) {
@@ -211,7 +208,7 @@ public class SubmissionPipelineUtils {
             String[] partsScan = psm.getSourceID().split(" ");
             Optional<String> scanOptional = Arrays.stream(partsScan).filter(x -> x.contains("scan=")).findFirst();
             String id = scanOptional.map(s -> s.replaceAll("scan=", "")).orElseGet(psm::getSourceID);
-            return new Triple<String, String, FileType>(spectraData.getFirst(), id, spectraData.getThird());
+            return new Triple<>(spectraData.getFirst(), id, spectraData.getThird());
         } else {
             return new Triple<>(spectraData.getFirst(), psm.getSourceID(),spectraData.getThird());
         }

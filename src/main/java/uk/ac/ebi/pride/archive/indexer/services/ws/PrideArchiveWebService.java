@@ -22,7 +22,7 @@ import java.util.Optional;
 @Service
 public class PrideArchiveWebService {
 
-    RestTemplate restTemplate = new RestTemplate();
+    final RestTemplate restTemplate = new RestTemplate();
 
     @Value("${prideWSPublic}")
     String prideWSPublic;

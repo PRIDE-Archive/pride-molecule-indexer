@@ -32,7 +32,7 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
     @Value("${batchCommit}")
     private int batchComit = 1;
 
-    private String[] options = {"get-result-files", "get-related-files", "generate-index-files"};
+    private final String[] options = {"get-result-files", "get-related-files", "generate-index-files"};
 
     @Autowired
     private ConfigurableApplicationContext context;
@@ -132,7 +132,7 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
                         "generate-index-files with parameter --app.sample-file");
             }
 
-            analysisAssayService.writeAnalysisOutputFromResultFiles(projectAccession, resultFileOptions, new HashSet<>(spectraFiles), new HashSet<String>(sampleFileOptions), fileOutput);
+            analysisAssayService.writeAnalysisOutputFromResultFiles(projectAccession, resultFileOptions, new HashSet<>(spectraFiles), new HashSet<>(sampleFileOptions), fileOutput);
         }
 
         args.getOptionNames().forEach(optionName -> System.out.println(optionName + "=" + args.getOptionValues(optionName)));
