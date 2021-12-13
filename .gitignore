@@ -56,3 +56,7 @@ target/
 Dockerfile
 pia
 /file.tsv
+.nextflow
+*.jar
+/results/
+/work/
