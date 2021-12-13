@@ -3,7 +3,6 @@ package uk.ac.ebi.pride.archive.indexer.services.ws;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
 import uk.ac.ebi.pride.archive.dataprovider.param.CvParam;
 
 import javax.xml.bind.annotation.XmlElement;

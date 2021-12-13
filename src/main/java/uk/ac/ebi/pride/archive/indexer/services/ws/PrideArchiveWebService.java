@@ -42,7 +42,7 @@ public class PrideArchiveWebService {
             URI uri = new URI(baseUrl);
             ResponseEntity<PrideProject> result = restTemplate.getForEntity(uri, PrideProject.class);
             if (result.getStatusCode() == HttpStatus.OK && result.hasBody()){
-                project = Optional.of(result.getBody());
+                project = Optional.of(Objects.requireNonNull(result.getBody()));
             }else
                 throw new IOException("Connection to pride ws unuseful for project: " + projectAccession);
         } catch (URISyntaxException e) {
@@ -96,8 +96,11 @@ public class PrideArchiveWebService {
                     files.forEach(x -> {
                         Optional<CvParamProvider> location = x.publicFileLocations.stream().filter(y -> Objects.equals(y.getAccession(), "PRIDE:0000469")).findFirst();
                         if(Objects.equals(x.getFileCategory().getValue(), "RESULT")){
-                            writer.printf("%s\t%s\t%s\t%s", x.getFileName(),date, x.getAccession(), location.get().getValue());
-                            writer.println();
+                            if(location.isPresent()){
+                                writer.printf("%s\t%s\t%s\t%s", x.getFileName(),date, x.getAccession(), location.get().getValue());
+                                writer.println();
+                            }
+
                         }
                     });
                 }

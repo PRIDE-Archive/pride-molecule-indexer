@@ -130,7 +130,6 @@ public class PrideAnalysisAssayService {
                     else{
                         filesRelated.addAll(getFilesRelatedToResultFile(resultFile, spectraDataList, projectFiles));
                     }
-
                 } catch (IOException e) {
                     log.info(String.format("Error reading the file %s with error %s",resultFile,e.getMessage()));
                 }
@@ -150,7 +149,8 @@ public class PrideAnalysisAssayService {
                 filesRelated.forEach(x -> {
                     if(x.getSecond() != null){
                         Optional<CvParamProvider> location = x.getSecond().getPublicFileLocations().stream().filter(y -> Objects.equals(y.getAccession(), "PRIDE:0000469")).findFirst();
-                        writer.printf("%s\t%s\t%s\t%s\t%s\t%s", x.getFirst().getKey(), date, x.getFirst().getValue(), x.getThird().name(), x.getSecond().getFileName(), location.get().getValue());
+                        if(location.isPresent())
+                            writer.printf("%s\t%s\t%s\t%s\t%s\t%s", x.getFirst().getKey(), date, x.getFirst().getValue(), x.getThird().name(), x.getSecond().getFileName(), location.get().getValue());
                     }else{
                         writer.printf("%s\t%s\t%s\t%s\t%s\t%s", x.getFirst().getKey(), date, null, null, null, null);
                     }
@@ -160,7 +160,6 @@ public class PrideAnalysisAssayService {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
 
     /**
@@ -499,7 +498,7 @@ public class PrideAnalysisAssayService {
 
                 try {
                     PeptideSpectrumMatch spectrum = null;
-                    if (psm instanceof ReportPSM)
+                    if (psm != null)
                         spectrum = psm.getSpectrum();
 
                     totalPSM.set(totalPSM.get() + 1);
@@ -507,13 +506,13 @@ public class PrideAnalysisAssayService {
                     PeptideSpectrumMatch finalSpectrum = spectrum;
 
                     Spectrum fileSpectrum = null;
-                    String usi = null;
-                    String spectraUsi = null;
-                    String fileName = null;
+                    String usi;
+                    String spectraUsi;
+                    String fileName;
                     if(fileType == SubmissionPipelineUtils.FileType.PRIDE){
                         fileSpectrum = finalService.getSpectrumById(resultFile, finalSpectrum.getSourceID());
                         fileName = FilenameUtils.getName(resultFile);
-                        usi = SubmissionPipelineUtils.buildUsi(projectAccession, fileName, psm, psm.getSourceID(), SubmissionPipelineUtils.FileType.PRIDE);
+                        usi = SubmissionPipelineUtils.buildUsi(projectAccession, fileName, psm, Objects.requireNonNull(psm).getSourceID(), SubmissionPipelineUtils.FileType.PRIDE);
                     }else{
                         Triple<String, String, SubmissionPipelineUtils.FileType> spectrumID = SubmissionPipelineUtils.getSpectrumId(finalRelatedFiles, finalSpectrum);
                         if(spectrumID.getThird() == SubmissionPipelineUtils.FileType.MGF){
@@ -995,7 +994,7 @@ public class PrideAnalysisAssayService {
                                  .map(x -> new Param(x.getName(), x.getValue()))
                                  .collect(Collectors.toSet()))
                          .build();
-                 log.info(String.format("Peptide %s -- Number of psms %s", peptide.getStringID(), usiList.size()));
+                 log.info(String.format("Peptide %s -- Number of psms %s", peptide.getStringID(), Objects.requireNonNull(usiList).size()));
 
                  try {
                      BackupUtil.write(peptideEvidence, peptideEvidenceBufferedWriter);
@@ -1084,7 +1083,7 @@ public class PrideAnalysisAssayService {
                 // -1 to calculate properly the modification offset
                 item.getPeptide().getAccessionOccurrences().forEach(peptideEvidence -> {
 
-                    if (peptideEvidence.getAccession().getAccession() == proteinAccession) {
+                    if (Objects.equals(peptideEvidence.getAccession().getAccession(), proteinAccession)) {
 
                         if (peptideEvidence.getStart() != null && peptideEvidence.getStart() >= 0 && position >= 0) {
 
@@ -1108,18 +1107,18 @@ public class PrideAnalysisAssayService {
                                 ptms.add(newPTM);
                             }
 
-                            if (position > 0 && position < (item.getSequence().length() + 1)) {
-//                                mod.addPosition(position, null);
-//                                modifications.add(mod);
-//                                log.info(String.valueOf(proteinPosition));
-//                                log.info(ptm.getAccession());
-                            } else if (position == 0) { //n-term for protein
-//                                mod.addPosition(position, null);
-//                                modifications.add(mod);
-//                                log.info(String.valueOf(proteinPosition));
-//                                log.info(ptm.getAccession());
-
-                            }
+//                            if (position > 0 && position < (item.getSequence().length() + 1)) {
+////                                mod.addPosition(position, null);
+////                                modifications.add(mod);
+////                                log.info(String.valueOf(proteinPosition));
+////                                log.info(ptm.getAccession());
+//                            } else if (position == 0) { //n-term for protein
+////                                mod.addPosition(position, null);
+////                                modifications.add(mod);
+////                                log.info(String.valueOf(proteinPosition));
+////                                log.info(ptm.getAccession());
+//
+//                            }
                         } else {
 //                            modifications.add(mod);
                             //if position is not set null is reported
