@@ -100,6 +100,7 @@ process uncompress_result_files{
 
    output:
      tuple result_id, file("*") into ch_result_uncompress
+     tuple result_id, file("*") into ch_result_uncompress_process
 
    script:
    """
@@ -124,6 +125,33 @@ publishDir "${params.outdir}/result_files", mode: 'copy', pattern: '*.tsv'
        --app.file-output=${params.project_accession}-${result_id}-result_spectra.tsv --app.result-file=${uncompress_result}
   """
 }
+
+// ch_spectra_summary.subscribe { println "value: $it" }
+
+ch_spectra_summary.map { tuple_summary ->
+                         def key = tuple_summary[0]
+                         def summary_file = tuple_summary[1]
+                         def list_spectra = tuple_summary[1].splitCsv(skip: 1, sep: '\t')
+                         .collect{it[5]}
+                         .flatten()
+                         return tuple(key.toString(), list_spectra.findAll{ it != "null"})
+                        }
+                   .groupTuple()
+                   .set { ch_spectra_tuple_results}
+
+ch_spectra_tuple_results.subscribe { println "value: $it" }
+
+// process_download_spectra_files{
+//
+//   input:
+//   tuple result_id, spectra_summary.splitCsv(header: true, sep:'\t'). from ch_spectra_summary
+//
+//   output:
+//   tuple result_id, file("*") into ch_spectra_files
+//
+//   script:
+//
+// }
 
 /*
  * Create a channel for input files
