@@ -157,7 +157,7 @@ process download_spectra_files{
 
 ch_spectra_files_process = ch_spectra_files.map { id, files -> files instanceof List ? [ id, files ] : [ id, [ files ] ] }
 
-ch_result_uncompress_process.combine(ch_spectra_files_process, by:0).into{ch_final_map}
+ch_result_uncompress_process.combine(ch_spectra_files_process, by:0).set{ch_final_map}
 
 //ch_final_map.subscribe { println "value: $it" }
 
@@ -173,7 +173,7 @@ process generate_json_index_files{
 
   script:
   """
-  java -jar ${projectDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar generate-index-files --app.result-file=${result_id[1]} --app.folder-output=./ --app.spectra-files=${result_id[2].join(",")} --app.project-accession=${params.project_accession}
+  java -jar ${projectDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar generate-index-files --app.result-file=${result_id[1]} --app.folder-output=`pwd` --app.spectra-files=${result_id[2].join(",")} --app.project-accession=${params.project_accession}
   """
 }
 
