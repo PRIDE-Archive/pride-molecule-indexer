@@ -104,7 +104,7 @@ process uncompress_result_files{
 
    script:
    """
-   wget ${result_file_path}
+   wget '${result_file_path}'
    gunzip ${result_id}
    """
 }
@@ -132,7 +132,7 @@ ch_spectra_summary.map { tuple_summary ->
                          def key = tuple_summary[0]
                          def summary_file = tuple_summary[1]
                          def list_spectra = tuple_summary[1].splitCsv(skip: 1, sep: '\t')
-                         .collect{it[5]}
+                         .collect{"'" + it[5] + "'"}
                          .flatten()
                          return tuple(key.toString(), list_spectra.findAll{ it != "null"})
                         }
@@ -155,7 +155,7 @@ process download_spectra_files{
   """
 }
 
-ch_spectra_files_process = ch_spectra_files.map { id, files -> files instanceof List ? [ id, files ] : [ id, [ files ] ] }
+ch_spectra_files_process = ch_spectra_files.map { id, files -> files instanceof List ? [ id, files.collect{"'" + it + "'"} ] : [ id, [ "'" + files + "'" ] ] }
 
 ch_result_uncompress_process.combine(ch_spectra_files_process, by:0).set{ch_final_map}
 
