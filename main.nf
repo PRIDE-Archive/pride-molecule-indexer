@@ -163,13 +163,13 @@ ch_result_uncompress_process.combine(ch_spectra_files_process, by:0).set{ch_fina
 
 process generate_json_index_files{
 
-  publishDir "${params.outdir}/result_files", mode: 'copy', pattern: '*.json'
+  publishDir "${params.outdir}/result_files", mode: 'copy', pattern: '**.json'
 
   input:
     val(result_id) from ch_final_map
 
   output:
-    file("${params.project_accession}/*.json") into final_index_json
+    file("**.json") into final_index_json
 
   script:
   """
@@ -177,6 +177,7 @@ process generate_json_index_files{
   """
 }
 
+final_index_json.subscribe { println "value: $it" }
 
 //--------------------------------------------------------------- //
 //---------------------- Nextflow specifics --------------------- //
