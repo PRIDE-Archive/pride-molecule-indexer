@@ -1,11 +1,11 @@
 #!/usr/bin/env nextflow
 /*
 ========================================================================================
-                         nf-core/proteomicslfq
+                         bigbio/pride-molecules-indexer
 ========================================================================================
- nf-core/proteomicslfq Analysis Pipeline.
+ bigbio/pride-molecules-indexer Analysis Pipeline.
  #### Homepage / Documentation
- https://github.com/nf-core/proteomicslfq
+ https://github.com/bigbio/pride-molecules-indexer
 ----------------------------------------------------------------------------------------
 */
 
@@ -177,7 +177,7 @@ process generate_json_index_files{
   """
 }
 
-final_index_json.subscribe { println "value: $it" }
+final_index_json.subscribe { println "value: $it" println " "}
 
 //--------------------------------------------------------------- //
 //---------------------- Nextflow specifics --------------------- //
@@ -222,8 +222,8 @@ Channel.from(summary.collect{ [it.key, it.value] })
     .map { x -> """
     id: 'nf-core-proteomicslfq-summary'
     description: " - this information is collected when the pipeline is started."
-    section_name: 'nf-core/proteomicslfq Workflow Summary'
-    section_href: 'https://github.com/nf-core/proteomicslfq'
+    section_name: 'bigbio/pride-molecules-indexer Workflow Summary'
+    section_href: 'https://github.com/bigbio/pride-molecules-indexer'
     plot_type: 'html'
     data: |
         <dl class=\"dl-horizontal\">
@@ -280,9 +280,9 @@ process output_documentation {
 workflow.onComplete {
 
     // Set up the e-mail variables
-    def subject = "[nf-core/proteomicslfq] Successful: $workflow.runName"
+    def subject = "[bigbio/pride-molecules-indexer] Successful: $workflow.runName"
     if (!workflow.success) {
-        subject = "[nf-core/proteomicslfq] FAILED: $workflow.runName"
+        subject = "[bigbio/pride-molecules-indexer] FAILED: $workflow.runName"
     }
     def email_fields = [:]
     email_fields['version'] = workflow.manifest.version
@@ -313,7 +313,7 @@ workflow.onComplete {
         if (workflow.success && ch_ptxqc_report.println()) {
             mqc_report = ch_ptxqc_report.getVal()
             if (mqc_report.getClass() == ArrayList) {
-                log.warn "[nf-core/proteomicslfq] Found multiple reports from process 'ptxqc', will use only one"
+                log.warn "[bigbio/pride-molecules-indexer] Found multiple reports from process 'ptxqc', will use only one"
                 mqc_report = mqc_report[0]
             }
         }
@@ -321,7 +321,7 @@ workflow.onComplete {
           mqc_report = ""
         }
     } catch (all) {
-        log.warn "[nf-core/proteomicslfq] Could not attach PTXQC report to summary email"
+        log.warn "[bigbio/pride-molecules-indexer] Could not attach report to summary email"
     }
 
     // Check if we are only sending emails on failure
@@ -353,7 +353,7 @@ workflow.onComplete {
             if (params.plaintext_email) { throw GroovyException('Send plaintext e-mail, not HTML') }
             // Try to send HTML e-mail using sendmail
             [ 'sendmail', '-t' ].execute() << sendmail_html
-            log.info "[nf-core/proteomicslfq] Sent summary e-mail to $email_address (sendmail)"
+            log.info "[bigbio/pride-molecules-indexer] Sent summary e-mail to $email_address (sendmail)"
         } catch (all) {
             // Catch failures and try with plaintext
             def mail_cmd = [ 'mail', '-s', subject, '--content-type=text/html', email_address ]
@@ -361,7 +361,7 @@ workflow.onComplete {
               mail_cmd += [ '-A', mqc_report ]
             }
             mail_cmd.execute() << email_html
-            log.info "[nf-core/proteomicslfq] Sent summary e-mail to $email_address (mail)"
+            log.info "[bigbio/pride-molecules-indexer] Sent summary e-mail to $email_address (mail)"
         }
     }
 
@@ -387,10 +387,10 @@ workflow.onComplete {
     }
 
     if (workflow.success) {
-        log.info "-${c_purple}[nf-core/proteomicslfq]${c_green} Pipeline completed successfully${c_reset}-"
+        log.info "-${c_purple}[bigbio/pride-molecules-indexer]${c_green} Pipeline completed successfully${c_reset}-"
     } else {
         checkHostname()
-        log.info "-${c_purple}[nf-core/proteomicslfq]${c_red} Pipeline completed with errors${c_reset}-"
+        log.info "-${c_purple}[bigbio/pride-molecules-indexer]${c_red} Pipeline completed with errors${c_reset}-"
     }
 
 }
@@ -414,7 +414,7 @@ def nfcoreHeader() {
     ${c_blue}  |\\ | |__  __ /  ` /  \\ |__) |__         ${c_yellow}}  {${c_reset}
     ${c_blue}  | \\| |       \\__, \\__/ |  \\ |___     ${c_green}\\`-._,-`-,${c_reset}
                                             ${c_green}`._,._,\'${c_reset}
-    ${c_purple}  nf-core/proteomicslfq v${workflow.manifest.version}${c_reset}
+    ${c_purple}  bigbio/pride-molecules-indexer v${workflow.manifest.version}${c_reset}
     -${c_dim}--------------------------------------------------${c_reset}-
     """.stripIndent()
 }
