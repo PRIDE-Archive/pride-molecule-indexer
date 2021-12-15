@@ -329,8 +329,12 @@ public class SubmissionPipelineUtils {
     public static double getQValueLower(double currentQValue, Set<Double> allQValues){
         if(currentQValue > 0.0)
             return currentQValue;
-        Double minQValue = Collections.min(allQValues.stream().filter( x -> x > 0.0).collect(Collectors.toList()));
-        return new BigDecimal(minQValue/10).setScale(6, RoundingMode.HALF_UP).doubleValue();
+        allQValues = allQValues.stream().filter( x -> x > 0.0).collect(Collectors.toSet());
+        if(allQValues.size() != 0){
+            Double minQValue = Collections.min(allQValues);
+            return new BigDecimal(minQValue/10).setScale(6, RoundingMode.HALF_UP).doubleValue();
+        }
+        return Double.NaN;
     }
 
     /**
