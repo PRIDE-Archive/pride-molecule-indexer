@@ -163,6 +163,8 @@ ch_result_uncompress_process.combine(ch_spectra_files_process, by:0).set{ch_fina
 
 process generate_json_index_files{
 
+  label 'process_high'
+
   publishDir "${params.outdir}/result_files", mode: 'copy', pattern: '**.json'
 
   input:
