@@ -1,32 +1,23 @@
 package uk.ac.ebi.pride.archive.indexer;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration;
-import org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.FilterType;
 import uk.ac.ebi.pride.archive.indexer.services.PrideAnalysisAssayService;
 import uk.ac.ebi.pride.archive.indexer.services.ws.PrideArchiveWebService;
-import uk.ac.ebi.pride.archive.spectra.services.S3SpectralArchive;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
-@SpringBootApplication(exclude={MongoAutoConfiguration.class, MongoDataAutoConfiguration.class})
-@ComponentScan(basePackages = "uk.ac.ebi.pride.archive.indexer.services", excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, value = {
-        S3SpectralArchive.class}))
+@SpringBootApplication
+@ComponentScan(basePackages = "uk.ac.ebi.pride.archive.indexer.services")
 public class ArchiveMoleculesIndexer implements ApplicationRunner {
 
     @Value("${batchCommit}")
@@ -136,11 +127,5 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
 
         args.getOptionNames().forEach(optionName -> System.out.println(optionName + "=" + args.getOptionValues(optionName)));
 
-    }
-
-    @Bean
-    @Qualifier("amazonS3")
-    AmazonS3 amazonS3(){
-        return AmazonS3ClientBuilder.standard().build();
     }
 }

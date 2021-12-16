@@ -3,10 +3,10 @@ package uk.ac.ebi.pride.archive.indexer.utility;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.module.paranamer.ParanamerModule;
-import uk.ac.ebi.pride.archive.spectra.model.ArchiveSpectrum;
-import uk.ac.ebi.pride.mongodb.molecules.model.peptide.PrideMongoPeptideEvidence;
-import uk.ac.ebi.pride.mongodb.molecules.model.protein.PrideMongoProteinEvidence;
-import uk.ac.ebi.pride.mongodb.molecules.model.psm.PrideMongoPsmSummaryEvidence;
+import uk.ac.ebi.pride.archive.indexer.services.proteomics.model.ArchiveSpectrum;
+import uk.ac.ebi.pride.archive.indexer.services.proteomics.model.PrideMongoPeptideEvidence;
+import uk.ac.ebi.pride.archive.indexer.services.proteomics.model.PrideMongoProteinEvidence;
+import uk.ac.ebi.pride.archive.indexer.services.proteomics.model.PrideMongoPsmSummaryEvidence;
 
 import java.io.*;
 import java.nio.file.Path;

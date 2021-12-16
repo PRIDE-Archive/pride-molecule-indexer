@@ -6,7 +6,6 @@ import de.mpc.pia.modeller.psm.ReportPSM;
 import org.apache.commons.io.FilenameUtils;
 import uk.ac.ebi.jmzidml.model.mzidml.FileFormat;
 import uk.ac.ebi.jmzidml.model.mzidml.SpectraData;
-import uk.ac.ebi.pride.archive.spectra.utils.Constants;
 import uk.ac.ebi.pride.utilities.util.Triple;
 
 import java.io.File;
@@ -213,24 +212,6 @@ public class SubmissionPipelineUtils {
             return new Triple<>(spectraData.getFirst(), psm.getSourceID(),spectraData.getThird());
         }
     }
-
-//    public static String buildUsi(String projectAccession, Triple<String, SpectraData, FileType> refeFile, ReportPSM psm) {
-//        Constants.ScanType scanType = Constants.ScanType.INDEX;
-//        SpecIdFormat fileIFormat = getSpectraDataIdFormat(refeFile.getSecond().getSpectrumIDFormat().getCvParam().getAccession());
-//        String spectrumID = getSpectrumId(refeFile.getSecond(), psm);
-//        if (fileIFormat == SpecIdFormat.MASCOT_QUERY_NUM || fileIFormat == SpecIdFormat.MULTI_PEAK_LIST_NATIVE_ID) {
-//            scanType = Constants.ScanType.INDEX;
-//        } else if (fileIFormat == SpecIdFormat.MZML_ID) {
-//            scanType = Constants.ScanType.SCAN;
-//            String[] scanStrings = spectrumID.split("scan=");
-//            spectrumID = scanStrings[1];
-//        } else if(fileIFormat == SpecIdFormat.SPECTRUM_NATIVE_ID || fileIFormat == SpecIdFormat.SCAN_NUMBER_NATIVE_ID) {
-//            scanType = Constants.ScanType.SCAN;
-//        }
-//        Path p = Paths.get(refeFile.getFirst());
-//        String fileName = p.getFileName().toString();
-//        return Constants.SPECTRUM_S3_HEADER + projectAccession + ":" + fileName + ":" + scanType.getName() + ":" + spectrumID + ":" + encodePSM(psm.getSequence(), psm.getModifications(), psm.getCharge());
-//    }
 
     public static String getSpectraUsiFromUsi(String usi){
         String spectraUsi;

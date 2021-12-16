@@ -40,8 +40,6 @@
         <java.version>1.8</java.version>
         <spring-boot.version>2.0.1.RELEASE</spring-boot.version>
         <uk.ac.ebi.pride.archive.repo.version>1.0.3-SNAPSHOT</uk.ac.ebi.pride.archive.repo.version>
-        <uk.ac.ebi.pride.archive.mongodb.repo.version>1.0.7-SNAPSHOT</uk.ac.ebi.pride.archive.mongodb.repo.version>
-        <uk.ac.ebi.pride.archive.solr.client.version>0.0.1-SNAPSHOT</uk.ac.ebi.pride.archive.solr.client.version>
         <uk.ac.ebi.pride.archive.data-provider.version>1.0.2-SNAPSHOT</uk.ac.ebi.pride.archive.data-provider.version>
         <uk.ac.ebi.pride.archive.utilities.version>2.0.19-SNAPSHOT</uk.ac.ebi.pride.archive.utilities.version>
         <uk.ac.ebi.pride.tools-jmzreader.version>2.0.6</uk.ac.ebi.pride.tools-jmzreader.version>
@@ -55,14 +53,26 @@
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-batch</artifactId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <version>${spring-boot.version}</version>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <version>${spring-boot.version}</version>
-            <scope>test</scope>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>1.4.194</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.22</version>
         </dependency>
 
         <dependency>
@@ -102,19 +112,6 @@
             </exclusions>
         </dependency>
 
-        <dependency>
-            <groupId>uk.ac.ebi.pride.archive</groupId>
-            <artifactId>pride-spectra-archive</artifactId>
-            <version>0.0.2-SNAPSHOT</version>
-            <exclusions>
-                <!--  exclude this as this fails to download from maven a lot. Instead include it separately-->
-                <exclusion>
-                    <groupId>net.sourceforge.cpdetector</groupId>
-                    <artifactId>cpdetector</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
         <!-- Begin of the jmzReader Dependencies. MzML and Pride XML files will be parse
           with jaxb and jmzml directly in order to keep more matadata -->
         <dependency>
@@ -142,19 +139,6 @@
             <version>2.13-SNAPSHOT</version>
         </dependency>
 
-        <!-- Mongo Configuration -->
-        <dependency>
-            <groupId>uk.ac.ebi.pride.archive</groupId>
-            <artifactId>pride-mongodb-repo</artifactId>
-            <version>${uk.ac.ebi.pride.archive.mongodb.repo.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>uk.ac.ebi.pride.archive</groupId>
-                    <artifactId>archive-data-provider-api</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
@@ -169,12 +153,6 @@
             <groupId>com.fasterxml.jackson.module</groupId>
             <artifactId>jackson-module-paranamer</artifactId>
             <version>${jackson.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>uk.ac.ebi.pride.archive</groupId>
-            <artifactId>pride-archive-ws</artifactId>
-            <version>1.0.1-SNAPSHOT</version>
         </dependency>
 
     </dependencies>

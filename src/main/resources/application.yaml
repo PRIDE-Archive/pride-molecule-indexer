@@ -4,7 +4,11 @@ spring:
 #  autoconfigure:
 #    exclude:
 #       - org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration
-
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:localhost;DB_CLOSE_ON_EXIT=FALSE
+    username: admin
+    password:
 rest:
   timeout:
     millis:
@@ -16,3 +20,5 @@ productionPath: /nfs/pride/prod/archive/
 backupPath: /nfs/pride/prod/peptidome/assays/
 qFilterProteinFDR: 0.1
 prideWSPublic: https://www.ebi.ac.uk/pride/ws/archive/v2/
+
+
