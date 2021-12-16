@@ -12,6 +12,7 @@ import org.springframework.context.annotation.ComponentScan;
 import uk.ac.ebi.pride.archive.indexer.services.PrideAnalysisAssayService;
 import uk.ac.ebi.pride.archive.indexer.services.ws.PrideArchiveWebService;
 
+import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -115,6 +116,7 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
                 spectraFiles = spectraFiles
                         .stream()
                         .flatMap( x-> Arrays.stream(x.split(",")))
+                        .filter(x -> (new File(x)).exists())
                         .collect(Collectors.toList());
 
             List<String> sampleFileOptions = args.getOptionValues("app.sample-file");
