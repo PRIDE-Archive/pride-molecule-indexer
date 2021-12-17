@@ -287,9 +287,9 @@ process output_documentation {
 workflow.onComplete {
 
     // Set up the e-mail variables
-    def subject = "[bigbio/pride-molecules-indexer] Successful: $workflow.runName $params.project_accession"
+    def subject = "[bigbio/pride-molecules-indexer] Successful: $workflow.runName ${params.project_accession}"
     if (!workflow.success) {
-        subject = "[bigbio/pride-molecules-indexer] FAILED: $workflow.runName $params.project_accession"
+        subject = "[bigbio/pride-molecules-indexer] FAILED: $workflow.runName ${params.project_accession}"
     }
     def email_fields = [:]
     email_fields['version'] = workflow.manifest.version
