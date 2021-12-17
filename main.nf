@@ -111,7 +111,9 @@ process uncompress_result_files{
 
 process project_get_related_spectra{
 
-publishDir "${params.outdir}/result_files", mode: 'copy', pattern: '*.tsv'
+  label 'process_high'
+
+  publishDir "${params.outdir}/result_files", mode: 'copy', pattern: '*.tsv'
 
   input:
     tuple result_id, file(uncompress_result) from ch_result_uncompress
