@@ -301,7 +301,6 @@ workflow.onComplete {
     email_fields['errorMessage'] = (workflow.errorMessage ?: 'None')
     email_fields['errorReport'] = (workflow.errorReport ?: 'None')
     email_fields['commandLine'] = workflow.commandLine
-    email_fields['projectDir'] = workflow.projectDir
     email_fields['summary'] = summary
     email_fields['summary']['Date Started'] = workflow.start
     email_fields['summary']['Date Completed'] = workflow.complete
