@@ -78,7 +78,7 @@ process project_get_result_files{
 
   script:
   """
-  java -jar ${projectDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar get-result-files --app.project-accession=${params.project_accession} \
+  java -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar get-result-files --app.project-accession=${params.project_accession} \
        --app.file-output='${params.project_accession}-result_files.tsv'
   """
 }
@@ -123,7 +123,7 @@ process project_get_related_spectra{
 
   script:
   """
-  java -jar ${projectDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar get-related-files --app.project-accession=${params.project_accession} \
+  java -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar get-related-files --app.project-accession=${params.project_accession} \
        --app.file-output='${params.project_accession}-${result_id}-result_spectra.tsv' --app.result-file='${uncompress_result}'
   """
 }
@@ -180,7 +180,7 @@ process generate_json_index_files{
 
   script:
   """
-  java -jar ${projectDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar generate-index-files --app.result-file='${result_id[1]}' --app.folder-output=`pwd` --app.spectra-files=${result_id[2].join(",")} --app.project-accession=${params.project_accession}
+  java -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar generate-index-files --app.result-file='${result_id[1]}' --app.folder-output=`pwd` --app.spectra-files=${result_id[2].join(",")} --app.project-accession=${params.project_accession}
   """
 }
 
@@ -202,11 +202,6 @@ summary['Output dir']       = params.outdir
 summary['Launch dir']       = workflow.launchDir
 summary['Working dir']      = workflow.workDir
 summary['User']             = workflow.userName
-if (workflow.profile.contains('awsbatch')) {
-    summary['AWS Region']   = params.awsregion
-    summary['AWS Queue']    = params.awsqueue
-    summary['AWS CLI']      = params.awscli
-}
 summary['Config Profile'] = workflow.profile
 if (params.config_profile_description) summary['Config Profile Description'] = params.config_profile_description
 if (params.config_profile_contact)     summary['Config Profile Contact']     = params.config_profile_contact
@@ -226,7 +221,7 @@ Channel.from(summary.collect{ [it.key, it.value] })
     .map { k,v -> "<dt>$k</dt><dd><samp>${v ?: '<span style=\"color:#999999;\">N/A</a>'}</samp></dd>" }
     .reduce { a, b -> return [a, b].join("\n            ") }
     .map { x -> """
-    id: 'nf-core-proteomicslfq-summary'
+    id: 'pride-molecules-indexer-summary'
     description: " - this information is collected when the pipeline is started."
     section_name: 'bigbio/pride-molecules-indexer Workflow Summary'
     section_href: 'https://github.com/bigbio/pride-molecules-indexer'
