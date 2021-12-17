@@ -122,7 +122,7 @@ publishDir "${params.outdir}/result_files", mode: 'copy', pattern: '*.tsv'
   script:
   """
   java -jar ${projectDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar get-related-files --app.project-accession=${params.project_accession} \
-       --app.file-output=${params.project_accession}-${result_id}-result_spectra.tsv --app.result-file=${uncompress_result}
+       --app.file-output=${params.project_accession}-${result_id}-result_spectra.tsv --app.result-file='${uncompress_result}'
   """
 }
 
@@ -178,7 +178,7 @@ process generate_json_index_files{
 
   script:
   """
-  java -jar ${projectDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar generate-index-files --app.result-file=${result_id[1]} --app.folder-output=`pwd` --app.spectra-files=${result_id[2].join(",")} --app.project-accession=${params.project_accession}
+  java -jar ${projectDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar generate-index-files --app.result-file='${result_id[1]}' --app.folder-output=`pwd` --app.spectra-files=${result_id[2].join(",")} --app.project-accession=${params.project_accession}
   """
 }
 
