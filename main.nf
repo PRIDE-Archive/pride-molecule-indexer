@@ -69,7 +69,7 @@ params.outdir = params.outdir ?: { log.warn "No output directory provided. Will 
 
 process project_get_result_files{
 
-  publishDir "${params.outdir}/result_files", mode: 'copy', pattern: '*.tsv'
+  publishDir "${params.outdir}/related_files", mode: 'copy', pattern: '*.tsv'
 
   input:
 
@@ -113,7 +113,7 @@ process project_get_related_spectra{
 
   label 'process_high'
 
-  publishDir "${params.outdir}/result_files", mode: 'copy', pattern: '*.tsv'
+  publishDir "${params.outdir}/related_files", mode: 'copy', pattern: '*.tsv'
 
   input:
     tuple result_id, file(uncompress_result) from ch_result_uncompress
