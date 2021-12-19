@@ -78,7 +78,7 @@ process project_get_result_files{
 
   script:
   """
-  java-jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar get-result-files --app.project-accession=${params.project_accession} \
+  java -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar get-result-files --app.project-accession=${params.project_accession} \
        --app.file-output='${params.project_accession}-result_files.tsv'
   """
 }
