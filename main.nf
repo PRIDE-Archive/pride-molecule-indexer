@@ -78,7 +78,7 @@ process project_get_result_files{
 
   script:
   """
-  java -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar get-result-files --app.project-accession=${params.project_accession} \
+  java-jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar get-result-files --app.project-accession=${params.project_accession} \
        --app.file-output='${params.project_accession}-result_files.tsv'
   """
 }
@@ -122,8 +122,9 @@ process project_get_related_spectra{
     tuple result_id, file("*.tsv") into ch_spectra_summary
 
   script:
+  java_mem = "-Xmx" + task.memory.toGiga() + "G"
   """
-  java -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar get-related-files --app.project-accession=${params.project_accession} \
+  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar get-related-files --app.project-accession=${params.project_accession} \
        --app.file-output='${params.project_accession}-${result_id}-result_spectra.tsv' --app.result-file='${uncompress_result}'
   """
 }
@@ -184,8 +185,9 @@ process generate_json_index_files{
     file("**.json") into final_index_json
 
   script:
+  java_mem = "-Xmx" + task.memory.toGiga() + "G"
   """
-  java -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar generate-index-files --app.result-file='${result_id[1]}' --app.folder-output=`pwd` --app.spectra-files=${result_id[2].join(",")} --app.project-accession=${params.project_accession}
+  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar generate-index-files --app.result-file='${result_id[1]}' --app.folder-output=`pwd` --app.spectra-files=${result_id[2].join(",")} --app.project-accession=${params.project_accession}
   """
 }
 
