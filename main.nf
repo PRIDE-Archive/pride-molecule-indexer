@@ -136,7 +136,8 @@ ch_spectra_summary.map { tuple_summary ->
                          def list_spectra = tuple_summary[1].splitCsv(skip: 1, sep: '\t')
                          .collect{"'" + it[5] + "'"}
                          .flatten()
-                         return tuple(key.toString(), list_spectra.findAll{ it != "'null'"})
+                         return tuple(key.toString(), list_spectra.findAll{ it != "'null'"}
+                                                                  .collect{ it-> it.replace("ftp://", "http://")})
                         }
                    .groupTuple()
                    .into { ch_spectra_tuple_results; ch_spectra_pride_xml}
@@ -149,7 +150,7 @@ process download_spectra_files{
   tuple val(result_id), spectra from ch_spectra_tuple_results
 
   output:
-  tuple val(result_id), path("*") into ch_spectra_files
+  tuple val(result_id), path("*") into ch_spectra_files, spectra_file_view
 
   when:
   !spectra.flatten().isEmpty()
@@ -160,7 +161,11 @@ process download_spectra_files{
   """
 }
 
-ch_spectra_files_process = (!ch_spectra_files)? ch_spectra_files.map { id, files -> files instanceof List ? [ id, files.collect{"'" + it + "'"} ] : [ id, [ "'" + files + "'" ] ] }: ch_spectra_pride_xml
+spectra_file_view.subscribe { println "value: $it" }
+
+ch_spectra_files_process = (ch_spectra_files)? ch_spectra_files.map { id, files ->
+                             files instanceof List ? [ id, files.collect{"'" + it + "'"} ]
+                             : [ id, [ "'" + files + "'" ] ] }: ch_spectra_pride_xml
 
 ch_result_uncompress_process.combine(ch_spectra_files_process, by:0).set{ch_final_map}
 

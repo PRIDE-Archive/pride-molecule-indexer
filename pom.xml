@@ -53,14 +53,14 @@
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <version>${spring-boot.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-tomcat</artifactId>
+                </exclusion>
+            </exclusions>
+
         </dependency>
 
         <dependency>
@@ -80,6 +80,10 @@
             <artifactId>pia</artifactId>
             <version>${pia.version}</version>
             <exclusions>
+                <exclusion>
+                    <groupId>de.proteinms.xtandemparser</groupId>
+                    <artifactId>xtandem-parser</artifactId>
+                </exclusion>
                 <exclusion>
                     <groupId>log4j</groupId>
                     <artifactId>log4j</artifactId>
@@ -131,12 +135,6 @@
             <groupId>uk.ac.ebi.pride.utilities</groupId>
             <artifactId>pride-utilities</artifactId>
             <version>${uk.ac.ebi.pride.archive.utilities.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>uk.ac.ebi.pride.utilities</groupId>
-            <artifactId>ols-client</artifactId>
-            <version>2.13-SNAPSHOT</version>
         </dependency>
 
         <dependency>

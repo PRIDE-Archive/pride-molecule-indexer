@@ -79,13 +79,14 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
                 throw new Exception("Project accession should be provided for command " +
                         "get-related-files with parameter --app.file-output");
             }
-            String fileOutput = fileOutputOptions.get(0);
+            String fileOutput = cleanFileName(fileOutputOptions.get(0));
 
             List<String> resultFileOptions = args.getOptionValues("app.result-file");
             if(resultFileOptions.size() == 0){
                 throw new Exception("Project accession should be provided for command " +
                         "get-related-files with parameter --app.result-file");
             }
+            resultFileOptions = resultFileOptions.stream().map(this::cleanFileName).collect(Collectors.toList());
             analysisAssayService.writeRelatedSpectraFiles(projectAccession, resultFileOptions, fileOutput);
         }
         else if(Objects.equals(command, "generate-index-files")){
@@ -108,6 +109,9 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
                 throw new Exception("Result files must be provided for " +
                         "generate-index-files with parameter --app.result-file");
             }
+            resultFileOptions = resultFileOptions.stream()
+                    .map(this::cleanFileName)
+                    .collect(Collectors.toList());
 
             List<String> spectraFiles = args.getOptionValues("app.spectra-files");
             if(spectraFiles == null)
@@ -116,6 +120,7 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
                 spectraFiles = spectraFiles
                         .stream()
                         .flatMap( x-> Arrays.stream(x.split(",")))
+                        .map(this::cleanFileName)
                         .filter(x -> (new File(x)).exists())
                         .collect(Collectors.toList());
 
@@ -129,5 +134,13 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
 
         args.getOptionNames().forEach(optionName -> System.out.println(optionName + "=" + args.getOptionValues(optionName)));
 
+    }
+
+    private String cleanFileName(String fileName){
+        if (fileName.startsWith("'"))
+            fileName = fileName.substring(1);
+        if (fileName.endsWith("'"))
+            fileName = fileName.substring(0, fileName.length() -1);
+        return fileName;
     }
 }
