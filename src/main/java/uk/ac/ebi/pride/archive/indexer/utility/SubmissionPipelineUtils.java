@@ -3,18 +3,19 @@ package uk.ac.ebi.pride.archive.indexer.utility;
 import de.mpc.pia.intermediate.Modification;
 import de.mpc.pia.intermediate.PeptideSpectrumMatch;
 import de.mpc.pia.modeller.psm.ReportPSM;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
 import uk.ac.ebi.jmzidml.model.mzidml.FileFormat;
 import uk.ac.ebi.jmzidml.model.mzidml.SpectraData;
 import uk.ac.ebi.pride.utilities.util.Triple;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 
@@ -23,7 +24,12 @@ import java.util.zip.GZIPInputStream;
  *
  * @author ypriverol
  */
+@Slf4j
 public class SubmissionPipelineUtils {
+
+    // The Match pattern for a valid mzidentml file, its support now the version 1.1.
+    private static final Pattern mzIdentMLHeaderPattern = Pattern.compile("^[^<]*(<\\?xml [^>]*>\\s*(<!--[^>]*-->\\s*)*)?<(MzIdentML)|(indexedmzIdentML) xmlns=.*", Pattern.MULTILINE);
+
 
     /**
      * This method returns true if the filename is extension is a compression file .gz or .zip
@@ -85,8 +91,12 @@ public class SubmissionPipelineUtils {
                 return MZTAB;
             } else if (filename.toLowerCase().endsWith("apl")) {
                 return APL;
-            } else if (filename.toLowerCase().endsWith(".xml"))
+            } else if (filename.toLowerCase().endsWith(".xml")){
+                if(isValidMzId(filename))
+                    return MZID;
                 return PRIDE;
+            }
+
 
             return null;
         }
@@ -335,4 +345,33 @@ public class SubmissionPipelineUtils {
             e.printStackTrace();
         }
     }
+
+    public static boolean isValidMzId(String fileName){
+
+        File file = new File(fileName);
+        boolean valid = false;
+            BufferedReader reader = null;
+            try {
+                reader = new BufferedReader(new FileReader(file));
+                // read the first ten lines
+                StringBuilder content = new StringBuilder();
+                for (int i = 0; i < 10; i++) {
+                    content.append(reader.readLine());
+                }
+                // check file type
+                Matcher matcher = mzIdentMLHeaderPattern.matcher(content);
+                valid = matcher.find();
+            } catch (Exception e) {
+                log.error("Failed to read file", e);
+            } finally {
+                if (reader != null) {
+                    try {
+                        reader.close();
+                    } catch (IOException e) {
+                        // do nothing here
+                    }
+                }
+            }
+            return valid;
+        }
 }

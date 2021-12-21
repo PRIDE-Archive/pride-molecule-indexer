@@ -79,7 +79,7 @@ process project_get_result_files{
   script:
   """
   java -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar get-result-files --app.project-accession=${params.project_accession} \
-       --app.file-output='${params.project_accession}-result_files.tsv'
+       --app.file-output="${params.project_accession}-result_files.tsv"
   """
 }
 
@@ -125,7 +125,7 @@ process project_get_related_spectra{
   java_mem = "-Xmx" + task.memory.toGiga() + "G"
   """
   java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar get-related-files --app.project-accession=${params.project_accession} \
-       --app.file-output='${params.project_accession}-${result_id}-result_spectra.tsv' --app.result-file='${uncompress_result}'
+       --app.file-output="${params.project_accession}-${result_id}-result_spectra.tsv" --app.result-file="${uncompress_result}"
   """
 }
 
@@ -165,8 +165,8 @@ process download_spectra_files{
 spectra_file_view.subscribe { println "value: $it" }
 
 ch_spectra_files_process = (ch_spectra_files)? ch_spectra_files.map { id, files ->
-                             files instanceof List ? [ id, files.collect{"'" + it + "'"} ]
-                             : [ id, [ "'" + files + "'" ] ] }: ch_spectra_pride_xml
+                             files instanceof List ? [ id, files.collect{ it } ]
+                             : [ id, [ files ] ] }: ch_spectra_pride_xml
 
 ch_result_uncompress_process.combine(ch_spectra_files_process, by:0).set{ch_final_map}
 
@@ -187,7 +187,7 @@ process generate_json_index_files{
   script:
   java_mem = "-Xmx" + task.memory.toGiga() + "G"
   """
-  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar generate-index-files --app.result-file='${result_id[1]}' --app.folder-output=`pwd` --app.spectra-files=${result_id[2].join(",")} --app.project-accession=${params.project_accession}
+  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar generate-index-files --app.result-file="${result_id[1]}" --app.folder-output=`pwd` --app.spectra-files="${result_id[2].join(",")}" --app.project-accession=${params.project_accession}
   """
 }
 
