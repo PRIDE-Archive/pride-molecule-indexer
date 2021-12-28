@@ -67,6 +67,7 @@ if (isCollectionOrArray(params.project_accession)){
 params.project_accession = params.project_accession ?: { log.error "No project accession provided. Make sure you have used the '--project_accession' option."; exit 1 }()
 params.outdir = params.outdir ?: { log.warn "No output directory provided. Will put the results into './results'"; return "./results" }()
 
+// Get the results files for one project.
 process project_get_result_files{
 
   publishDir "${params.outdir}/related_files", mode: 'copy', pattern: '*.tsv'
@@ -74,7 +75,7 @@ process project_get_result_files{
   input:
 
   output:
-   file "*.tsv" into result_file_summary
+   file "*.tsv" into result_file_summary, result_file_summary_str
 
   script:
   """
@@ -83,6 +84,9 @@ process project_get_result_files{
   """
 }
 
+result_file_summary_str.subscribe{ println "result file:  $it"}
+
+// Translate from ftp urls to https
 result_file_summary.splitCsv(skip: 1, sep: '\t')
   .multiMap{ row -> id = row[0]
                     result_files: tuple(id, !params.root_folder ? row[3].replace("ftp://", "http://") :params.root_folder + "/" + row[0])
@@ -91,6 +95,7 @@ result_file_summary.splitCsv(skip: 1, sep: '\t')
 
 //ch_result_files.subscribe { println "value: $it" }
 
+// Download with wget and Uncompress result files
 process uncompress_result_files{
 
    label 'downloading_thread'
@@ -99,8 +104,7 @@ process uncompress_result_files{
      tuple result_id, result_file_path from ch_result_files.result_files
 
    output:
-     tuple result_id, file("*") into ch_result_uncompress
-     tuple result_id, file("*") into ch_result_uncompress_process
+     tuple result_id, file("*") into ch_result_uncompress, ch_result_uncompress_process, ch_result_uncompress_process_str
 
    script:
    """
@@ -109,6 +113,9 @@ process uncompress_result_files{
    """
 }
 
+ch_result_uncompress_process_str.subscribe { println "value: $it" }
+
+// Get the related spectra for each result file.
 process project_get_related_spectra{
 
   label 'process_high'
@@ -141,10 +148,11 @@ ch_spectra_summary.map { tuple_summary ->
                                                                   .collect{ it-> it.replace("ftp://", "http://")})
                         }
                    .groupTuple()
-                   .into { ch_spectra_tuple_results; ch_spectra_pride_xml}
+                   .into { ch_spectra_tuple_results; ch_spectra_pride_xml; ch_spectra_files_str}
 
-// ch_spectra_tuple_results.subscribe { println "value: $it" }
+ch_spectra_files_str.subscribe { println "value: $it" }
 
+//Download the spectra files related to the files.
 process download_spectra_files{
 
   input:
@@ -162,15 +170,38 @@ process download_spectra_files{
   """
 }
 
-spectra_file_view.subscribe { println "value: $it" }
+pride_xml_run = spectra_file_view.ifEmpty(true)
+//spectra_file_view.subscribe { println "value: $it" }
 
-ch_spectra_files_process = (ch_spectra_files)? ch_spectra_files.map { id, files ->
+ch_spectra_files_process = !pride_xml_run ? ch_spectra_files.map { id, files ->
                              files instanceof List ? [ id, files.collect{ it } ]
                              : [ id, [ files ] ] }: ch_spectra_pride_xml
 
-ch_result_uncompress_process.combine(ch_spectra_files_process, by:0).set{ch_final_map}
+ch_result_uncompress_process.combine(ch_spectra_files_process, by:0).into{ch_final_map; ch_result_uncompress_process_str}
 
-//ch_final_map.subscribe { println "value: $it" }
+ch_result_uncompress_process_str.subscribe { println "value-2: $it" }
+
+// process generate_json_index_files_from_pridexml{
+//
+//   label 'process_high'
+//
+//   publishDir "${params.outdir}/result_files", mode: 'copy', pattern: '**.json'
+//
+//   when:
+//   pride_xml_run
+//
+//   input:
+//     val(result_id) from ch_spectra_pride_xml
+//
+//   output:
+//     file("**.json") into final_index_json_pridexml
+//
+//   script:
+//   java_mem = "-Xmx" + task.memory.toGiga() + "G"
+//   """
+//   java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar generate-index-files --app.result-file="${result_id[0]}" --app.folder-output=`pwd` --app.project-accession=${params.project_accession}
+//   """
+// }
 
 process generate_json_index_files{
 

@@ -1,7 +1,6 @@
 package uk.ac.ebi.pride.archive.indexer;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.io.FilenameUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
@@ -43,7 +42,6 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
     public static void main(String[] args){
         SpringApplication.run(ArchiveMoleculesIndexer.class, args);
     }
-
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
@@ -143,6 +141,7 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
         if (fileName.endsWith("\""))
             fileName = fileName.substring(0, fileName.length() -1);
         fileName = fileName.replace("\\","");
+        fileName = fileName.trim();
         return fileName;
     }
 }
