@@ -157,6 +157,8 @@ ch_spectra_files_str.subscribe { println "value: $it" }
 //Download the spectra files related to the files.
 process download_spectra_files{
 
+  label 'downloading_thread'
+
   input:
   tuple val(result_id), spectra from ch_spectra_tuple_results
 
@@ -277,6 +279,9 @@ Channel.from(summary.collect{ [it.key, it.value] })
  * Parse software version numbers
  */
 process get_software_versions {
+
+    label 'downloading_thread'
+
     publishDir "${params.outdir}/pipeline_info", mode: params.publish_dir_mode,
         saveAs: { filename ->
                       if (filename.indexOf(".csv") > 0) filename
@@ -300,6 +305,9 @@ process get_software_versions {
  * STEP 3 - Output Description HTML
  */
 process output_documentation {
+
+    label 'downloading_thread'
+
     publishDir "${params.outdir}/pipeline_info", mode: params.publish_dir_mode
 
     input:
