@@ -70,6 +70,8 @@ params.outdir = params.outdir ?: { log.warn "No output directory provided. Will 
 // Get the results files for one project.
 process project_get_result_files{
 
+  label 'downloading_thread'
+
   publishDir "${params.outdir}/related_files", mode: 'copy', pattern: '*.tsv'
 
   input:
