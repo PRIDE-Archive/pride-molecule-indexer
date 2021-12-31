@@ -163,7 +163,7 @@ process download_spectra_files{
   tuple val(result_id), spectra from ch_spectra_tuple_results
 
   output:
-  tuple val(result_id), path("*") into ch_spectra_files, spectra_file_view
+  tuple val(result_id), path("*") into ch_spectra_files, spectra_file_view, spectra_file_str
 
   when:
   !spectra.flatten().isEmpty()
@@ -174,38 +174,20 @@ process download_spectra_files{
   """
 }
 
-pride_xml_run = spectra_file_view.ifEmpty(true)
-//spectra_file_view.subscribe { println "value: $it" }
+ch_spectra_files_process =  ch_spectra_files.map { id, files ->
+                                                        files instanceof List ? [ id, files.collect{ it } ]
+                                                        : [ id, [ files ] ] }
+spectra_file_view.ifEmpty{ ch_spectra_files_process =  ch_spectra_pride_xml}
 
-ch_spectra_files_process = !pride_xml_run ? ch_spectra_files.map { id, files ->
-                             files instanceof List ? [ id, files.collect{ it } ]
-                             : [ id, [ files ] ] }: ch_spectra_pride_xml
+spectra_file_str.subscribe { println "spectra value: $it" }
+
+// ch_spectra_files_process = !spectra_file_view.toList().isEmpty() ? ch_spectra_files.map { id, files ->
+//                              files instanceof List ? [ id, files.collect{ it } ]
+//                              : [ id, [ files ] ] }: ch_spectra_pride_xml
 
 ch_result_uncompress_process.combine(ch_spectra_files_process, by:0).into{ch_final_map; ch_result_uncompress_process_str}
 
 ch_result_uncompress_process_str.subscribe { println "value-2: $it" }
-
-// process generate_json_index_files_from_pridexml{
-//
-//   label 'process_high'
-//
-//   publishDir "${params.outdir}/result_files", mode: 'copy', pattern: '**.json'
-//
-//   when:
-//   pride_xml_run
-//
-//   input:
-//     val(result_id) from ch_spectra_pride_xml
-//
-//   output:
-//     file("**.json") into final_index_json_pridexml
-//
-//   script:
-//   java_mem = "-Xmx" + task.memory.toGiga() + "G"
-//   """
-//   java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar generate-index-files --app.result-file="${result_id[0]}" --app.folder-output=`pwd` --app.project-accession=${params.project_accession}
-//   """
-// }
 
 process generate_json_index_files{
 
@@ -226,7 +208,7 @@ process generate_json_index_files{
   """
 }
 
-final_index_json.subscribe { println "value: $it" println " "}
+// final_index_json.subscribe { println "value: $it" println " "}
 
 //--------------------------------------------------------------- //
 //---------------------- Nextflow specifics --------------------- //
