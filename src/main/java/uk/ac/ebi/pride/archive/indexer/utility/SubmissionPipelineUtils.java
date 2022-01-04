@@ -346,6 +346,12 @@ public class SubmissionPipelineUtils {
         }
     }
 
+    /**
+     * Check if the xml file provided is an mzIdentML, in some cases the users of PRIDE submit mzIdentML as
+     * .xml instead of mzid.
+     * @param fileName file name
+     * @return true if the file is an mzIdentML.
+     */
     public static boolean isValidMzId(String fileName){
 
         File file = new File(fileName);
@@ -355,12 +361,11 @@ public class SubmissionPipelineUtils {
                 reader = new BufferedReader(new FileReader(file));
                 // read the first ten lines
                 StringBuilder content = new StringBuilder();
-                for (int i = 0; i < 10; i++) {
+                for (int i = 0; i < 20; i++) {
                     content.append(reader.readLine());
                 }
                 // check file type
-                Matcher matcher = mzIdentMLHeaderPattern.matcher(content);
-                valid = matcher.find();
+                return content.toString().toLowerCase().contains("mzidentml");
             } catch (Exception e) {
                 log.error("Failed to read file", e);
             } finally {
