@@ -171,7 +171,7 @@ process download_spectra_files{
   script:
   """
   wget ${spectra.flatten().join(" ")}
-  find . -type f -name '*.gz' -exec gzip -d {} \;
+  find . -type f -name '*.gz' -exec gzip -d {}
   """
 }
 
