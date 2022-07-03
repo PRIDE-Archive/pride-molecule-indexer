@@ -19,7 +19,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * {@link PrideMongoPeptideEvidence} stores the information of a peptide related to a protein within one particular project/experiment.
+ * {@link PridePeptideEvidence} stores the information of a peptide related to a protein within one particular project/experiment.
  * Aprt of multiple properties such as Sequence, Protein accession, Sample properties etc. It contains a list of all the PSMs that support the
  * particular peptide evidence using a {@link Set } of {@link PeptideSpectrumOverview}. Properties are store as key value pairs.
  *
@@ -30,7 +30,8 @@ import java.util.stream.Collectors;
 @Data
 @Builder
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class PrideMongoPeptideEvidence implements PrideArchiveField, PeptideSequenceProvider {
+@Deprecated
+public class PridePeptideEvidence implements PrideArchiveField, PeptideSequenceProvider {
 
     /** Generated accession **/
     @JsonIgnore

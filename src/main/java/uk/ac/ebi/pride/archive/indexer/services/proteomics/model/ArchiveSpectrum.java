@@ -70,6 +70,9 @@ public class ArchiveSpectrum implements PSMProvider {
     @JsonProperty("peptideSequence")
     String peptideSequence;
 
+    @JsonProperty("proteinAccessions")
+    List<String> proteinAccessions;
+
     @JsonProperty("missedCleavages")
     Integer missedCleavages;
 
@@ -99,13 +102,7 @@ public class ArchiveSpectrum implements PSMProvider {
 
     public ArchiveSpectrum() { }
 
-    public ArchiveSpectrum(String usi, String projectAccession, String assayAccession, String spectrumFile,
-                           String sourceID, String spectrumTitle, Double[] masses, Double[] intensities,
-                           Integer numPeaks, Integer msLevel, Integer precursorCharge, Double precursorMz,
-                           Double retentionTime, Set<Param> properties, String peptideSequence, Integer missedCleavages,
-                           Collection<IdentifiedModification> modifications, List<String> annotations, Boolean isDecoy,
-                           Set<Param> qualityEstimationMethods, Boolean isValid, Set<Param> scores,
-                           Param bestSearchEngineScore, Set<Param> sampleProperties) {
+    public ArchiveSpectrum(String usi, String projectAccession, String assayAccession, String spectrumFile, String sourceID, String spectrumTitle, Double[] masses, Double[] intensities, Integer numPeaks, Integer msLevel, Integer precursorCharge, Double precursorMz, Double retentionTime, Set<Param> properties, String peptideSequence, List<String> proteinAccessions, Integer missedCleavages, Collection<IdentifiedModification> modifications, List<String> annotations, Boolean isDecoy, Set<Param> qualityEstimationMethods, Boolean isValid, Set<Param> scores, Param bestSearchEngineScore, Set<Param> sampleProperties) {
         this.usi = usi;
         this.projectAccession = projectAccession;
         this.assayAccession = assayAccession;
@@ -121,6 +118,7 @@ public class ArchiveSpectrum implements PSMProvider {
         this.retentionTime = retentionTime;
         this.properties = properties;
         this.peptideSequence = peptideSequence;
+        this.proteinAccessions = proteinAccessions;
         this.missedCleavages = missedCleavages;
         this.modifications = modifications;
         this.annotations = annotations;

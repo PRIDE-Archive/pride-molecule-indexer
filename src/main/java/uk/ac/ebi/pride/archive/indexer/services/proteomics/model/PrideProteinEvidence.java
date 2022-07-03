@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Data;
+import uk.ac.ebi.pride.archive.dataprovider.data.peptide.PeptideSpectrumOverview;
 import uk.ac.ebi.pride.archive.dataprovider.data.protein.ProteinDetailProvider;
 import uk.ac.ebi.pride.archive.dataprovider.data.ptm.IdentifiedModificationProvider;
 import uk.ac.ebi.pride.archive.dataprovider.param.CvParam;
@@ -16,20 +17,19 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * The {@link PrideMongoProteinEvidence} contains the information of a protein identification in an specific experiment/dataset.
+ * The {@link PrideProteinEvidence} contains the information of a protein identification in an specific experiment/dataset.
  * It contains the
  */
 
 @Data
 @Builder
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class PrideMongoProteinEvidence implements PrideArchiveField, ProteinDetailProvider {
+public class PrideProteinEvidence implements PrideArchiveField, ProteinDetailProvider {
 
     /** Generated accession **/
     @JsonProperty(PrideArchiveField.ID)
     @JsonIgnore
     private String id;
-
 
     /** Reported File ID is the Identifier of the File mzTab in PRIDE **/
     @JsonProperty(PrideArchiveField.PROTEIN_REPORTED_ACCESSION)
@@ -42,10 +42,6 @@ public class PrideMongoProteinEvidence implements PrideArchiveField, ProteinDeta
     /** External Project that contains the PSM **/
     @JsonProperty(EXTERNAL_PROJECT_ACCESSION)
     private String projectAccession;
-
-    /** Peptide Sequence **/
-    @JsonProperty(PrideArchiveField.PROTEIN_SEQUENCE)
-    private String proteinSequence;
 
     /** Uniprot protein identifier mapper **/
     @JsonProperty(PrideArchiveField.UNIPROT_MAPPED_PROTEIN_ACCESSION)
@@ -68,7 +64,7 @@ public class PrideMongoProteinEvidence implements PrideArchiveField, ProteinDeta
     private Set<Param> additionalAttributes;
 
     @JsonProperty(PrideArchiveField.PROTEIN_MODIFICATIONS)
-    private List<IdentifiedModificationProvider> ptms;
+    private List<String> ptms;
 
     @JsonProperty(PrideArchiveField.BEST_SEARCH_ENGINE)
     private Param bestSearchEngineScore;
@@ -97,6 +93,9 @@ public class PrideMongoProteinEvidence implements PrideArchiveField, ProteinDeta
     @JsonProperty(PrideArchiveField.PROTEIN_COVERAGE)
     private double sequenceCoverage;
 
+    @JsonProperty(PSM_SPECTRUM_ACCESSIONS)
+    private Set<PeptideSpectrumOverview> psmAccessions;
+
     @Override
     @JsonIgnore
     public String getUniprotMapping() {
@@ -116,14 +115,12 @@ public class PrideMongoProteinEvidence implements PrideArchiveField, ProteinDeta
     }
 
     @Override
-    @JsonIgnore
     public String getSubmittedSequence() {
-        return proteinSequence;
+        return null;
     }
 
-    @Override
     @JsonIgnore
-    public Collection<? extends IdentifiedModificationProvider> getIdentifiedModifications() {
+    public Collection<String> getIdentifiedModifications() {
         return ptms;
     }
 
@@ -168,7 +165,7 @@ public class PrideMongoProteinEvidence implements PrideArchiveField, ProteinDeta
      * Add a to the list of modifications of a Protein.
      * @param modification {@link IdentifiedModificationProvider}
      */
-    public void addIdentifiedModification(IdentifiedModificationProvider modification){
+    public void addIdentifiedModification(String modification){
         if(ptms == null)
             ptms = new ArrayList<>();
         ptms.add(modification);
@@ -181,7 +178,6 @@ public class PrideMongoProteinEvidence implements PrideArchiveField, ProteinDeta
                 ", reportedAccession='" + reportedAccession + '\'' +
                 ", assayAccession='" + assayAccession + '\'' +
                 ", projectAccession='" + projectAccession + '\'' +
-                ", proteinSequence='" + proteinSequence + '\'' +
                 ", uniprotMappedProteinAccession='" + uniprotMappedProteinAccession + '\'' +
                 ", ensemblMappedProteinAccession='" + ensemblMappedProteinAccession + '\'' +
                 ", proteinGroupMembers=" + proteinGroupMembers +

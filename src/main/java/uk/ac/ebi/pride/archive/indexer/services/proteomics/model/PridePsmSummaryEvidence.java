@@ -7,13 +7,14 @@ import lombok.Builder;
 import lombok.Data;
 import uk.ac.ebi.pride.archive.dataprovider.param.Param;
 
+import java.util.List;
 import java.util.Set;
 
 
 @Data
 @Builder
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class PrideMongoPsmSummaryEvidence implements PrideArchiveField{
+public class PridePsmSummaryEvidence implements PrideArchiveField{
 
     /** Generated accession **/
     @JsonProperty(PrideArchiveField.ID)
@@ -35,6 +36,9 @@ public class PrideMongoPsmSummaryEvidence implements PrideArchiveField{
     /** External Project that contains the PSM **/
     @JsonProperty(PrideArchiveField.EXTERNAL_PROJECT_ACCESSION)
     private String projectAccession;
+
+    @JsonProperty("proteinAccessions")
+    List<String> proteinAccessions;
 
     /** Peptide Sequence **/
     @JsonProperty(PrideArchiveField.PEPTIDE_SEQUENCE)

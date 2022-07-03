@@ -48,7 +48,7 @@ public class PIAModelerService {
 
         if (piaModeller != null){
 
-            piaModeller.setCreatePSMSets(true);
+            piaModeller.setCreatePSMSets(false);
 
             piaModeller.getPSMModeller().setAllDecoyPattern("searchengine");
             piaModeller.getPSMModeller().setAllTopIdentifications(0);
@@ -86,7 +86,7 @@ public class PIAModelerService {
                     .updateFDRData(FDRData.DecoyStrategy.SEARCHENGINE, "searchengine", proteinQThreshold);
             piaModeller.getProteinModeller().updateDecoyStates();
             piaModeller.getProteinModeller().calculateFDR();
-            piaModeller.getPeptideModeller().calculateFDR(0L);
+//            piaModeller.getPeptideModeller().calculateFDR(0L);
 
         }
 
@@ -109,15 +109,11 @@ public class PIAModelerService {
         String type = InputFileParserFactory.InputFileTypes.MZTAB_INPUT.getFileTypeShort();
         if(fileType == SubmissionPipelineUtils.FileType.MZID)
            type = InputFileParserFactory.InputFileTypes.MZIDENTML_INPUT.getFileTypeShort();
-        else if (fileType == SubmissionPipelineUtils.FileType.PRIDE)
-           type = InputFileParserFactory.InputFileTypes.PRIDEXML_INPUT.getFileTypeShort();
 
         piaCompiler.getDataFromFile(assayKey, filePath, null, type);
 
-
         piaCompiler.buildClusterList();
         piaCompiler.buildIntermediateStructure();
-
 
         if (piaCompiler.getAllPeptideSpectrumMatcheIDs() != null
                 && !piaCompiler.getAllPeptideSpectrumMatcheIDs().isEmpty()) {
