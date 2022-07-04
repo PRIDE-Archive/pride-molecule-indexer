@@ -191,7 +191,7 @@ process generate_json_index_files{
 
   label 'process_high'
 
-  publishDir "${params.outdir}/result_files", mode: 'copy', pattern: '**.json'
+  publishDir "${params.outdir}", mode: 'copy', pattern: '**.json'
 
   input:
     val(result_id) from ch_final_map
