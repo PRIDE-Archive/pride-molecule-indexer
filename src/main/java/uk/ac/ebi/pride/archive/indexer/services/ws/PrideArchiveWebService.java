@@ -1,5 +1,6 @@
 package uk.ac.ebi.pride.archive.indexer.services.ws;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,12 +21,15 @@ import java.util.Objects;
 import java.util.Optional;
 
 @Service
+@Slf4j
 public class PrideArchiveWebService {
 
     final RestTemplate restTemplate = new RestTemplate();
 
     @Value("${prideWSPublic}")
     String prideWSPublic;
+
+    private int maxRetries = 5;
 
     /**
      * Find the {@link PrideProject} for a specific project accession
@@ -35,20 +39,31 @@ public class PrideArchiveWebService {
      */
     public Optional<PrideProject> findByAccession(String projectAccession) throws IOException {
 
-        Optional<PrideProject> project;
         final String baseUrl = prideWSPublic + "projects/" + projectAccession;
 
-        try {
-            URI uri = new URI(baseUrl);
-            ResponseEntity<PrideProject> result = restTemplate.getForEntity(uri, PrideProject.class);
-            if (result.getStatusCode() == HttpStatus.OK && result.hasBody()){
-                project = Optional.of(Objects.requireNonNull(result.getBody()));
-            }else
-                throw new IOException("Connection to pride ws unuseful for project: " + projectAccession);
-        } catch (URISyntaxException e) {
-            throw new IOException("Connection to pride ws unuseful for project: " + projectAccession);
+        int nRetries = 0;
+        while (nRetries < maxRetries){
+            try {
+                URI uri = new URI(baseUrl);
+                ResponseEntity<PrideProject> result = restTemplate.getForEntity(uri, PrideProject.class);
+                if (result.getStatusCode() == HttpStatus.OK && result.hasBody()){
+                    return Optional.of(Objects.requireNonNull(result.getBody()));
+                }else{
+                    log.error("Connection to pride ws unuseful for project: " + projectAccession);
+                    nRetries++;
+                }
+            } catch (URISyntaxException e) {
+                log.error("Connection to pride ws unuseful for project: " + projectAccession);
+                nRetries++;
+            }
+            try {
+                // Sleep the process for 10s until search again in PRIDE API
+                Thread.sleep(10000);
+            } catch (InterruptedException e) {
+                throw new IOException(e);
+            }
         }
-        return project;
+        return  Optional.empty();
     }
 
     public List<PrideFile> findFilesByProjectAccession(String projectAccession) throws IOException {

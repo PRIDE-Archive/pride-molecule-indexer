@@ -13,6 +13,7 @@ import uk.ac.ebi.pride.archive.indexer.services.PrideAnalysisAssayService;
 import uk.ac.ebi.pride.archive.indexer.services.ws.PrideArchiveWebService;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -127,8 +128,11 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
             if(sampleFileOptions == null){
                 sampleFileOptions = new ArrayList<>();
             }
-
-            analysisAssayService.writeAnalysisOutputFromResultFiles(projectAccession, resultFileOptions, new HashSet<>(spectraFiles), new HashSet<>(sampleFileOptions), fileOutput);
+            try{
+                analysisAssayService.writeAnalysisOutputFromResultFiles(projectAccession, resultFileOptions, new HashSet<>(spectraFiles), new HashSet<>(sampleFileOptions), fileOutput);
+            }catch (IOException e){
+                log.error("Project --- " + projectAccession + "can't be analyzed due the following error --- " + e.getMessage());
+            }
         }
 
         args.getOptionNames().forEach(optionName -> System.out.println(optionName + "=" + args.getOptionValues(optionName)));

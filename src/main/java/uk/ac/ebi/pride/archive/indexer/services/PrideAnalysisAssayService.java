@@ -251,12 +251,10 @@ public class PrideAnalysisAssayService {
                     }else{
                         log.info(String.format("The file %s can be found in the result file list %s",resultFile, projectFiles));
                     }
-
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    log.error("Assay -- " + resultFile + " can't be process because of the following error -- " + e.getMessage());
                 }
             }
-
         });
     }
 
