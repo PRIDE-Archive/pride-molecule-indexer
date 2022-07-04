@@ -197,7 +197,7 @@ process generate_json_index_files{
     val(result_id) from ch_final_map
 
   output:
-    file("**.json") into final_index_json
+    file("**.json") optional true into final_index_json
 
   script:
   java_mem = "-Xmx" + task.memory.toGiga() + "G"
