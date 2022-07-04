@@ -78,6 +78,9 @@ public class PrideAnalysisAssayService {
     @Value("${qFilterProteinFDR:#{1.0}}")
     private Double qFilterProteinFDR;
 
+    @Value("${minPSMs:#{1000}}")
+    private int minPSMs;
+
     final DecimalFormat df = new DecimalFormat("###.#####");
 
     @Bean
@@ -412,9 +415,9 @@ public class PrideAnalysisAssayService {
         List<ReportProtein> proteins = modeller.getProteinModeller()
                 .getFilteredReportProteins(filters);
 
-
-        if (!(nrDecoys > 0 && proteins.size() > 0 && psms.size() > 0)) {
-            throw new NumberFormatException("FDR calculation not possible, no decoys present!!! ");
+        // The Assay to be consider should have decoy psms a minimun number of PSMS of 1000 (default value)
+        if (!(nrDecoys > 0 && proteins.size() > 0 && psms.size() > minPSMs)) {
+            throw new NumberFormatException("FDR calculation not possible, no decoys present or number of PSms not bigger than -- !!! " + minPSMs);
         }
 
         assayObjectMap.put("modeller", modeller);
