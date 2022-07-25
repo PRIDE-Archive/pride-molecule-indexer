@@ -33,6 +33,7 @@ import uk.ac.ebi.pride.archive.dataprovider.param.Param;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.model.ArchiveSpectrum;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.model.PrideProteinEvidence;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.model.PridePsmSummaryEvidence;
+import uk.ac.ebi.pride.archive.indexer.utility.HashUtils;
 import uk.ac.ebi.pride.archive.indexer.utility.SubmissionPipelineUtils;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.JmzReaderSpectrumService;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.PIAModelerService;
@@ -188,49 +189,53 @@ public class PrideAnalysisAssayService {
 
     /**
      * Create Backup folders for an specific resultFile and assay.
-     * @param prideFile {@link PrideFile} from PRIDE API WS
+     * @param fileAccession file accession, hash
      * @param assayObjects AssayObjects to store the protein/peptide/psms information
      * @param folderOutput Root folder containing all the backup files
      * @param projectAccession Project assay
      * @return Object Map updated with the {@link BufferedWriter}s for each object
      * @throws IOException
      */
-    private Map<String, Object> createBackupFiles(PrideFile prideFile, Map<String, Object> assayObjects, String folderOutput, String projectAccession) throws IOException {
+    private Map<String, Object> createBackupFiles(String fileAccession, Map<String, Object> assayObjects, String folderOutput, String projectAccession) throws IOException {
 
         // Create first the root folder for the project
         createBackupDir(folderOutput, projectAccession);
 
-        log.info("Creating assay file  -- " + prideFile.getFileName());
+        log.info("Creating assay file  -- " + fileAccession);
 
-        final String proteinEvidenceFileName = BackupUtil.getProteinEvidenceFile(folderOutput, projectAccession, prideFile.getAccession());
+        final String proteinEvidenceFileName = BackupUtil.getProteinEvidenceFile(folderOutput, projectAccession, fileAccession);
         assayObjects.put("proteinEvidenceBufferedWriter", new BufferedWriter(new FileWriter(proteinEvidenceFileName, false)));
 
-        final String archiveSpectrumFileName = BackupUtil.getArchiveSpectrumFile(folderOutput, projectAccession, prideFile.getAccession());
+        final String archiveSpectrumFileName = BackupUtil.getArchiveSpectrumFile(folderOutput, projectAccession, fileAccession);
         assayObjects.put("archiveSpectrumBufferedWriter", new BufferedWriter(new FileWriter(archiveSpectrumFileName, false)));
 
-        final String psmSummaryEvidenceFileName = BackupUtil.getPsmSummaryEvidenceFile(folderOutput, projectAccession, prideFile.getAccession());
+        final String psmSummaryEvidenceFileName = BackupUtil.getPsmSummaryEvidenceFile(folderOutput, projectAccession, fileAccession);
         assayObjects.put("psmSummaryEvidenceBufferedWriter", new BufferedWriter(new FileWriter(psmSummaryEvidenceFileName, false)));
 
         return assayObjects;
 
     }
 
-    public void writeAnalysisOutputFromResultFiles(String projectAccession, List<String> resultFiles, HashSet<String> spectraFiles, Set<String> sampleFiles, String folderOutput) throws IOException {
+    public void writeAnalysisOutputFromResultFiles(String projectAccession, List<String> resultFiles, HashSet<String> spectraFiles, Set<String> sampleFiles, String folderOutput, boolean localReanalysis) throws IOException {
 
         Optional<PrideProject> projectOption = prideArchiveWebService.findByAccession(projectAccession);
+        List<PrideFile> projectFiles = new ArrayList<>();
+        if (!localReanalysis) {
+            projectFiles = prideArchiveWebService.findFilesByProjectAccession(projectAccession);
+            if(projectFiles.size() == 0){
+                throw new IOException("Not files found in the PRIDE WS for accession: " + projectAccession);
+            }
+        }
+
         if(!projectOption.isPresent())
             throw new IOException("Project not present in the PRIDE WS for accession: " + projectAccession);
-        PrideProject project = projectOption.get();
-
-        List<PrideFile> projectFiles = prideArchiveWebService.findFilesByProjectAccession(projectAccession);
-        if(projectFiles.size() == 0){
-            throw new IOException("Not files found in the PRIDE WS for accession: " + projectAccession);
-        }
 
         initGlobalSampleMetadata(projectOption.get(), spectraFiles, sampleFiles,
                 resultFiles.stream()
                         .filter( x-> SubmissionPipelineUtils.FileType.getFileTypeFromFileName(x) == SubmissionPipelineUtils.FileType.PRIDE)
                         .collect(Collectors.toSet()));
+
+        List<PrideFile> finalProjectFiles = projectFiles;
 
         resultFiles.forEach(resultFile -> {
             SubmissionPipelineUtils.FileType fileType = SubmissionPipelineUtils.FileType.getFileTypeFromFileName(resultFile);
@@ -238,18 +243,25 @@ public class PrideAnalysisAssayService {
             if((fileType == SubmissionPipelineUtils.FileType.MZTAB || fileType == SubmissionPipelineUtils.FileType.MZID
             ) && !isCompressFile){
                 try {
-                    Optional<PrideFile> prideFile = findPrideFileInProjectFiles(resultFile, projectFiles);
-                    if(prideFile.isPresent()){
-                        Map<String, Object> assayObjectMap = analyzeAssayInformationStep(resultFile, prideFile.get(), fileType);
-                        assayObjectMap = createBackupFiles(prideFile.get(), assayObjectMap, folderOutput, projectAccession);
+                    String fileAccession = null;
+                    if (!localReanalysis){
+                        Optional<PrideFile> prideFile = findPrideFileInProjectFiles(resultFile, finalProjectFiles);
+                        fileAccession = prideFile.map(PrideFile::getAccession).orElse(null);
+                    }else{
+                        fileAccession = HashUtils.calculateSha1Checksum(resultFile);
+                    }
 
-                        indexSpectraStep(projectAccession, resultFile, prideFile.get(), assayObjectMap, fileType, spectraFiles);
-                        proteinIndexStep(prideFile.get(), assayObjectMap, projectAccession);
+                    if(fileAccession != null){
+                        Map<String, Object> assayObjectMap = analyzeAssayInformationStep(resultFile, fileAccession, fileType);
+                        assayObjectMap = createBackupFiles(fileAccession, assayObjectMap, folderOutput, projectAccession);
+
+                        indexSpectraStep(projectAccession, fileAccession, assayObjectMap, spectraFiles);
+                        proteinIndexStep(fileAccession, assayObjectMap, projectAccession);
 
                         closeBackupFiles(assayObjectMap);
 
                     }else{
-                        log.info(String.format("The file %s can be found in the result file list %s",resultFile, projectFiles));
+                        log.info(String.format("The file %s can be found in the result file list %s",resultFile, finalProjectFiles));
                     }
                 } catch (Exception e) {
                     log.error("Assay -- " + resultFile + " can't be process because of the following error -- " + e.getMessage());
@@ -363,12 +375,12 @@ public class PrideAnalysisAssayService {
     /**
      * Analyze result file to get the list of peptides, psms and proteins identified.
      * @param resultFile Result file, supported formats [PRIDE, MZTAB, MZIDENTML]
-     * @param prideFile {@link PrideFile} project File retrieved from the PRIDE Web service
+     * @param fileAccession {@link PrideFile} hash file accession for the result file
      * @param fileType {@link uk.ac.ebi.pride.archive.indexer.utility.SubmissionPipelineUtils.FileType}
      * @return Object Map with all psms, peptides and proteins lists
      * @throws IOException
      */
-    public Map<String, Object> analyzeAssayInformationStep(String resultFile, PrideFile prideFile, SubmissionPipelineUtils.FileType fileType) throws IOException {
+    public Map<String, Object> analyzeAssayInformationStep(String resultFile, String fileAccession, SubmissionPipelineUtils.FileType fileType) throws IOException {
 
         long initAnalysisAssay = System.currentTimeMillis();
 
@@ -377,7 +389,7 @@ public class PrideAnalysisAssayService {
         Map<String, Object> assayObjectMap = new HashMap<>();
 
         // The first threshold for modeller is not threshold at PSM and Protein level.
-        PIAModeller modeller = piaModellerService.performProteinInference(prideFile.getAccession(),resultFile,
+        PIAModeller modeller = piaModellerService.performProteinInference(fileAccession,resultFile,
                 fileType, qValueThreshold, qFilterProteinFDR);
 
         long nrDecoys = modeller.getPSMModeller().getAllFilteredReportPSMs(new ArrayList<>()).stream()
@@ -425,9 +437,8 @@ public class PrideAnalysisAssayService {
         return assayObjectMap;
     }
 
-    public void indexSpectraStep(String projectAccession, String resultFile, PrideFile prideFile,
+    public void indexSpectraStep(String projectAccession, String fileAccession,
                                  Map<String, Object> assayObjects,
-                                 SubmissionPipelineUtils.FileType fileType,
                                  Set<String> spectraFiles) throws Exception {
 
         long initSpectraStep = System.currentTimeMillis();
@@ -606,7 +617,7 @@ public class PrideAnalysisAssayService {
                         PSMProvider archivePSM = ArchiveSpectrum
                                 .builder()
                                 .projectAccession(projectAccession)
-                                .assayAccession(prideFile.getAccession())
+                                .assayAccession(fileAccession)
                                 .peptideSequence(psm.getSequence())
                                 .isDecoy(psm.getIsDecoy())
                                 .retentionTime(retentionTime)
@@ -636,7 +647,7 @@ public class PrideAnalysisAssayService {
                                 .usi(usi)
                                 .spectraUsi(spectraUsi)
                                 .peptideSequence(psm.getSequence())
-                                .assayAccession(prideFile.getAccession())
+                                .assayAccession(fileAccession)
                                 .isDecoy(psm.getIsDecoy())
                                 .charge(psm.getCharge())
                                 .isValid(isValid)
@@ -763,7 +774,7 @@ public class PrideAnalysisAssayService {
         }).findFirst();
 
     }
-    public void proteinIndexStep(PrideFile prideFile, Map<String, Object> assayObjects, String projectAccession) throws Exception {
+    public void proteinIndexStep(String fileAccession, Map<String, Object> assayObjects, String projectAccession) throws Exception {
 
         long initInsertPeptides = System.currentTimeMillis();
 
@@ -796,7 +807,6 @@ public class PrideAnalysisAssayService {
                     if (!accessions.contains(proteinKey)){
 
                         accessions.add(proteinKey);
-                        String proteinSequence = protein.getRepresentative().getDbSequence();
                         String proteinAccession = proteinKey;
                         Set<String> proteinGroups = protein.getAccessions()
                                 .stream().map(Accession::getAccession)
@@ -809,7 +819,6 @@ public class PrideAnalysisAssayService {
 
 
                         if (Double.isFinite(protein.getQValue()) && !Double.isNaN(protein.getQValue())) {
-
                             Double qValue = SubmissionPipelineUtils.getQValueLower(protein.getQValue(), qValues);
                             Param score = new Param(CvTermReference.MS_PIA_PROTEIN_GROUP_QVALUE.getName(), String.valueOf(qValue));
                             scores.add(score);
@@ -837,8 +846,11 @@ public class PrideAnalysisAssayService {
                         boolean isValid = (boolean) assayObjects.get("isValid");
 
                         int nPSMs = proteinToPsms.size();
-                        int nPeptides = proteinToPsms.stream().map(x -> x.getPeptideSequence()).collect(Collectors.toSet()).size();
+                        int nPeptides = proteinToPsms.stream().map(PeptideSpectrumOverview::getPeptideSequence).collect(Collectors.toSet()).size();
 
+                        Double coverage = protein.getCoverage(proteinAccession);
+                        if(Double.isInfinite(coverage) || Double.isNaN(coverage))
+                            coverage = null;
 
                         PrideProteinEvidence proteinEvidence = PrideProteinEvidence
                                 .builder()
@@ -847,7 +859,7 @@ public class PrideAnalysisAssayService {
                                 .proteinGroupMembers(proteinGroups)
                                 .ptms(proteinPTMs)
                                 .projectAccession(projectAccession)
-                                .assayAccession(prideFile.getAccession())
+                                .assayAccession(fileAccession)
                                 .isValid(isValid)
                                 .numberPeptides(nPeptides)
                                 .numberPSMs(nPSMs)
@@ -869,9 +881,6 @@ public class PrideAnalysisAssayService {
                         log.info("Protein Accession already in report -- " + protein.getRepresentative().getAccession());
                     }
                 }
-
-
-
             }
         }
     }

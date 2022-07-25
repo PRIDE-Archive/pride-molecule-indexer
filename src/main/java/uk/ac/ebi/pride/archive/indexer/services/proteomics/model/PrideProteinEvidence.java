@@ -91,7 +91,7 @@ public class PrideProteinEvidence implements PrideArchiveField, ProteinDetailPro
     private Integer numberPSMs;
 
     @JsonProperty(PrideArchiveField.PROTEIN_COVERAGE)
-    private double sequenceCoverage;
+    private Double sequenceCoverage;
 
     @JsonProperty(PSM_SPECTRUM_ACCESSIONS)
     private Set<PeptideSpectrumOverview> psmAccessions;
