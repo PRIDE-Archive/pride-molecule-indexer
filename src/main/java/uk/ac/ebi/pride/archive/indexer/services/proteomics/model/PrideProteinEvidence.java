@@ -114,9 +114,12 @@ public class PrideProteinEvidence implements PrideArchiveField, ProteinDetailPro
         return proteinGroupMembers;
     }
 
+    @JsonProperty(PROTEIN_SEQUENCE)
+    private String proteinSequence;
+
     @Override
     public String getSubmittedSequence() {
-        return null;
+        return proteinSequence;
     }
 
     @JsonIgnore

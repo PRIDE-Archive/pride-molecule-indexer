@@ -852,6 +852,11 @@ public class PrideAnalysisAssayService {
                         if(Double.isInfinite(coverage) || Double.isNaN(coverage))
                             coverage = null;
 
+                        String proteinSequence = null;
+                        if(protein.getAccessions().stream().anyMatch(y -> y.getAccession().equalsIgnoreCase(proteinAccession))){
+                            proteinSequence = protein.getAccessions().stream().filter( y -> y.getAccession().equalsIgnoreCase(proteinAccession)).findAny().get().getDbSequence();
+                        }
+
                         PrideProteinEvidence proteinEvidence = PrideProteinEvidence
                                 .builder()
                                 .reportedAccession(proteinAccession)
@@ -865,7 +870,8 @@ public class PrideAnalysisAssayService {
                                 .numberPSMs(nPSMs)
                                 .scores(scores)
                                 .bestSearchEngineScore(bestSearchEngineScore)
-                                .sequenceCoverage(protein.getCoverage(proteinAccession))
+                                .sequenceCoverage(coverage)
+                                .proteinSequence(proteinSequence)
                                 .qualityEstimationMethods(validationMethods.stream().map(x -> new Param(x.getName(), x.getValue())).collect(Collectors.toSet()))
                                 .psmAccessions(proteinToPsms)
                                 .build();
