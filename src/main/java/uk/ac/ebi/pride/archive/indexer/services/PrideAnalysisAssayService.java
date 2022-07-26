@@ -849,7 +849,7 @@ public class PrideAnalysisAssayService {
                         int nPeptides = proteinToPsms.stream().map(PeptideSpectrumOverview::getPeptideSequence).collect(Collectors.toSet()).size();
 
                         Double coverage = protein.getCoverage(proteinAccession);
-                        if(Double.isInfinite(coverage) || Double.isNaN(coverage))
+                        if(coverage.equals(Double.NaN) || coverage.equals(Double.POSITIVE_INFINITY))
                             coverage = null;
 
                         String proteinSequence = null;
