@@ -8,7 +8,8 @@
  https://github.com/bigbio/pride-molecules-indexer
 ----------------------------------------------------------------------------------------
 */
-nextflow.enable.dsl=1
+
+nextflow.enable.dsl = 1
 
 def helpMessage() {
     log.info nfcoreHeader()
@@ -18,7 +19,7 @@ def helpMessage() {
 
     The typical command for running the pipeline is as follows:
 
-    nextflow run bigbio/pride-molecules-indexer --project_accession "PXD029360" -profile conda
+    nextflow run submissions.nf -c nextflow.config --project_accession "PXD029360" -profile conda
 
     Main arguments:
       --project_accession           Project accession to convert the identifications to json files.
