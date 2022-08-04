@@ -96,6 +96,9 @@ public class PrideProteinEvidence implements PrideArchiveField, ProteinDetailPro
     @JsonProperty(PSM_SPECTRUM_ACCESSIONS)
     private Set<PeptideSpectrumOverview> psmAccessions;
 
+    @JsonProperty(PROTEIN_SEQUENCE)
+    private String proteinSequence;
+
     @Override
     @JsonIgnore
     public String getUniprotMapping() {
@@ -113,9 +116,6 @@ public class PrideProteinEvidence implements PrideArchiveField, ProteinDetailPro
     public Set<String> getProteinGroupMembers() {
         return proteinGroupMembers;
     }
-
-    @JsonProperty(PROTEIN_SEQUENCE)
-    private String proteinSequence;
 
     @Override
     public String getSubmittedSequence() {
