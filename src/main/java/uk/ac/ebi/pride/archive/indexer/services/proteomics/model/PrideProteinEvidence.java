@@ -118,6 +118,7 @@ public class PrideProteinEvidence implements PrideArchiveField, ProteinDetailPro
     }
 
     @Override
+    @JsonIgnore
     public String getSubmittedSequence() {
         return proteinSequence;
     }
@@ -140,6 +141,7 @@ public class PrideProteinEvidence implements PrideArchiveField, ProteinDetailPro
     }
 
     @Override
+    @JsonIgnore
     public Comparable getId() {
         return id;
     }
