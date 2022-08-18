@@ -425,7 +425,7 @@ public class PrideAnalysisAssayService {
         List<ReportProtein> proteins = modeller.getProteinModeller()
                 .getFilteredReportProteins(filters);
 
-        // The Assay to be consider should have decoy psms a minimun number of PSMS of 1000 (default value)
+        // The Assay to be considered should have decoy psms a minimun number of PSMS of 1000 (default value)
         if (!(nrDecoys > 0 && proteins.size() > 0 && psms.size() > minPSMs)) {
             throw new NumberFormatException("FDR calculation not possible, no decoys present or number of PSms not bigger than -- !!! " + minPSMs);
         }
@@ -838,6 +838,12 @@ public class PrideAnalysisAssayService {
                         }
 
                         Set<PeptideSpectrumOverview> proteinToPsms = new HashSet<>(proteinsToPsms.get(protein.getRepresentative().getAccession()));
+                        proteinToPsms = proteinToPsms.stream().collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(PeptideSpectrumOverview::getPeptideSequence))),
+                                        HashSet::new));
+
+                        log.info("Protein -- " + proteinAccession + " # PSMs -- " + proteinToPsms.size());
+
+
                         proteinIds.add(proteinAccession);
                         protein.getPeptides().forEach(x -> peptideSequences.add(x.getSequence()));
 
