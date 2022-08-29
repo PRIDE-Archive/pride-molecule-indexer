@@ -23,6 +23,7 @@ def helpMessage() {
 
     Main arguments:
       --project_accession           Project accession to convert the identifications to json files.
+      --reanalysis_accession        Reanalysis accession for the specific renalysis.
       --outdir                      Output directory containing the information (json) of the project
       --reanalysis_folder           Folder with the reanalysis data files
 
@@ -68,15 +69,18 @@ if (isCollectionOrArray(params.project_accession)){
 }
 
 params.project_accession = params.project_accession ?: { log.error "No project accession provided. Make sure you have used the '--project_accession' option."; exit 1 }()
+params.reanalysis_accession = params.reanalysis_accession ?: { log.error "No project reanalysis accession provided. Make sure you have used the '--reanalysis_accession' option."; exit 1 }()
 params.outdir = params.outdir ?: { log.warn "No output directory provided. Will put the results into './results'"; return "./results" }()
 params.reanalysis_folder = params.reanalysis_folder ?: { log.error "No project reanalysis folder provided. Make sure you have used the '--reanalysis_folder' option."; exit 1 }()
 
-mztab_files = file("{$params.reanalysis_folder}/*.mztab", hidden: true)
-mzid_files  = file("{$params.reanalysis_folder}/*.mzid", hidden: true)
+mztab_files = Channel.fromPath("${params.reanalysis_folder}/*.mztab")
+mzid_files  = Channel.fromPath("${params.reanalysis_folder}/*.mzid")
+mzid_files2  = Channel.fromPath("${params.reanalysis_folder}/*.mzid")
+mzid_files2.view()
 identification_files = mztab_files.concat(mzid_files)
 
-mzmls_files = file("{$params.reanalysis_folder}/*.mzML", hidden: true)
-sdrf_files  = file("{$params.reanalysis_folder}/*.sdrf.tsv", hidden: true)
+mzmls_files = Channel.fromPath("${params.reanalysis_folder}/*.mzML", checkIfExists: true)
+sdrf_files  = Channel.fromPath("${params.reanalysis_folder}/*.sdrf.tsv", checkIfExists: true)
 
 process generate_json_index_files{
 
@@ -95,7 +99,7 @@ process generate_json_index_files{
   script:
   java_mem = "-Xmx" + task.memory.toGiga() + "G"
   """
-  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar generate-index-files --app.result-file="${id_file}" --app.folder-output=`pwd` --app.spectra-files="${mzmls_files.join(",")}" --app.project-accession=${params.project_accession} --app.sample-file=${sdrf}
+  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar generate-index-files --app.result-file="${id_file}" --app.folder-output=`pwd` --app.spectra-files="${input_files.join(",")}" --app.project-accession=${params.project_accession} --app.sample-file=${sdrf} --app.local-reanalysis=${params.reanalysis_accession}
   """
 }
 

@@ -128,13 +128,14 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
             if(sampleFileOptions == null){
                 sampleFileOptions = new ArrayList<>();
             }
-            List<String> localProject = args.getOptionValues("app.local-reanalysis");
-            boolean localRenalysis = false;
-            if (localProject != null)
-                localRenalysis = true;
-
+            List<String> reanalysisAccessionOptions = args.getOptionValues("app.local-reanalysis");
+            if(reanalysisAccessionOptions != null && reanalysisAccessionOptions.size() != 1){
+                throw new Exception("Project reanalysis accession should be provided for command " +
+                        "generate-index-files with parameter --app.project-accession");
+            }
+            String reanalysisAccession = (reanalysisAccessionOptions == null)?null:projectAccessionOptions.get(0);
             try{
-                analysisAssayService.writeAnalysisOutputFromResultFiles(projectAccession, resultFileOptions, new HashSet<>(spectraFiles), new HashSet<>(sampleFileOptions), fileOutput, localRenalysis);
+                analysisAssayService.writeAnalysisOutputFromResultFiles(projectAccession, resultFileOptions, new HashSet<>(spectraFiles), new HashSet<>(sampleFileOptions), fileOutput, reanalysisAccession);
             }catch (IOException e){
                 log.error("Project --- " + projectAccession + "can't be analyzed due the following error --- " + e.getMessage());
             }
