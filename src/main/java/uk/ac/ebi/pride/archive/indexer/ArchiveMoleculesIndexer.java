@@ -128,12 +128,12 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
             if(sampleFileOptions == null){
                 sampleFileOptions = new ArrayList<>();
             }
-            List<String> reanalysisAccessionOptions = args.getOptionValues("app.local-reanalysis");
+            List<String> reanalysisAccessionOptions = args.getOptionValues("app.reanalysis-accession");
             if(reanalysisAccessionOptions != null && reanalysisAccessionOptions.size() != 1){
                 throw new Exception("Project reanalysis accession should be provided for command " +
-                        "generate-index-files with parameter --app.project-accession");
+                        "generate-index-files with parameter --app.reanalysis-accession");
             }
-            String reanalysisAccession = (reanalysisAccessionOptions == null)?null:projectAccessionOptions.get(0);
+            String reanalysisAccession = (reanalysisAccessionOptions == null)?null:reanalysisAccessionOptions.get(0);
             try{
                 analysisAssayService.writeAnalysisOutputFromResultFiles(projectAccession, resultFileOptions, new HashSet<>(spectraFiles), new HashSet<>(sampleFileOptions), fileOutput, reanalysisAccession);
             }catch (IOException e){

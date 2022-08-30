@@ -496,7 +496,7 @@ public class PrideAnalysisAssayService {
                     String usi = SubmissionPipelineUtils.buildUsi(projectAccession, fileName, psm, spectrumID.getSecond(), spectrumID.getThird());
                     String reanalysisUsi = null;
                     if(reanalysisAccession != null)
-                       reanalysisUsi = SubmissionPipelineUtils.buildUsi(reanalysisUsi, fileName, psm, spectrumID.getSecond(), spectrumID.getThird());
+                       reanalysisUsi = SubmissionPipelineUtils.buildUsi(reanalysisAccession, fileName, psm, spectrumID.getSecond(), spectrumID.getThird());
 
                     spectraUsi = SubmissionPipelineUtils.getSpectraUsiFromUsi(usi);
                     if(reanalysisUsi != null)
@@ -560,6 +560,17 @@ public class PrideAnalysisAssayService {
                         double retentionTime = Double.NaN;
                         if (psm.getRetentionTime() != null)
                             retentionTime = psm.getRetentionTime();
+                        else if (fileSpectrum != null && fileSpectrum.getAdditional() != null) {
+                            Optional<uk.ac.ebi.pride.tools.jmzreader.model.impl.CvParam> rtTerm = fileSpectrum.getAdditional().getCvParams().stream().filter(x -> x.getAccession().equalsIgnoreCase("MS:1000016")).findFirst();
+                            if(rtTerm.isPresent() && rtTerm.get().getValue() != null){
+                                try{
+                                    retentionTime = Double.parseDouble(rtTerm.get().getValue());
+                                }catch (NumberFormatException e){
+                                    log.info("Retention tiem from mzML is not Double -- " + rtTerm.get().getValue());
+                                }
+
+                            }
+                        }
 
                         List<Double> ptmMasses = psm.getModifications().values()
                                 .stream().map(Modification::getMass).collect(Collectors.toList());
@@ -571,10 +582,10 @@ public class PrideAnalysisAssayService {
 
 //                        log.info("Delta Mass -- " + deltaMass);
 
-                        if (deltaMass > 0.9) {
-                            errorDeltaPSM.set(errorDeltaPSM.get() + 1);
-                        }else if (deltaMass > 10){
+                        if (deltaMass > 10) {
                             throw new Exception(String.format("The delta mass for the following PSM --- %s is over 10", usi));
+                        }else if (deltaMass > 0.9){
+                            errorDeltaPSM.set(errorDeltaPSM.get() + 1);
                         }
 
                         /** PTMs parsing **/

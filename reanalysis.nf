@@ -99,7 +99,7 @@ process generate_json_index_files{
   script:
   java_mem = "-Xmx" + task.memory.toGiga() + "G"
   """
-  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT.jar generate-index-files --app.result-file="${id_file}" --app.folder-output=`pwd` --app.spectra-files="${input_files.join(",")}" --app.project-accession=${params.project_accession} --app.sample-file=${sdrf} --app.local-reanalysis=${params.reanalysis_accession}
+  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar generate-index-files --app.result-file="${id_file}" --app.folder-output=`pwd` --app.spectra-files="${input_files.join(",")}" --app.project-accession=${params.project_accession} --app.sample-file=${sdrf} --app.reanalysis-accession=${params.reanalysis_accession}
   """
 }
 

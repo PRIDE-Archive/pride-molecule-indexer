@@ -1,9 +1,9 @@
 spring:
   main:
     web-application-type: none
-#  autoconfigure:
-#    exclude:
-#       - org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration
+  autoconfigure:
+    exclude:
+       - org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration
   datasource:
     driver-class-name: org.h2.Driver
     url: jdbc:h2:mem:localhost;DB_CLOSE_ON_EXIT=FALSE
