@@ -1051,10 +1051,15 @@ public class PrideAnalysisAssayService {
             Modification ptm = ptmEntry.getValue();
             Integer position = ptmEntry.getKey();
             Set<CvParam> probabilities = ptm.getProbability()
-                    .stream().map(oldProbability -> new CvParam(oldProbability.getCvLabel(),
+                    .stream().map(oldProbability -> {
+                        String cvLabel = oldProbability.getCvLabel();
+                        if (cvLabel == null && oldProbability.getAccession().toUpperCase().contains("MS:"))
+                            cvLabel = "MS";
+                        return new CvParam(cvLabel,
                             oldProbability.getAccession(),
                             oldProbability.getName(),
-                            String.valueOf(oldProbability.getValue())))
+                            String.valueOf(oldProbability.getValue()));
+                    })
                     .collect(Collectors.toSet());
             // ignore modifications that can't be processed correctly (can not be mapped to the protein)
             if (ptm.getAccession() == null) {
@@ -1135,19 +1140,6 @@ public class PrideAnalysisAssayService {
                                 newPTM.addPosition(proteinPosition, probabilities);
                                 ptms.add(newPTM);
                             }
-
-//                            if (position > 0 && position < (item.getSequence().length() + 1)) {
-////                                mod.addPosition(position, null);
-////                                modifications.add(mod);
-////                                log.info(String.valueOf(proteinPosition));
-////                                log.info(ptm.getAccession());
-//                            } else if (position == 0) { //n-term for protein
-////                                mod.addPosition(position, null);
-////                                modifications.add(mod);
-////                                log.info(String.valueOf(proteinPosition));
-////                                log.info(ptm.getAccession());
-//
-//                            }
                         } else {
 //                            modifications.add(mod);
                             //if position is not set null is reported
