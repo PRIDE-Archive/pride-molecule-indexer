@@ -17,6 +17,7 @@ public interface PrideArchiveField {
     String PSM_SPECTRUM_ACCESSIONS = "psmAccessions";
     String PEPTIDE_SEQUENCE = "peptideSequence";
     String MODIFIED_PEPTIDE_SEQUENCE = "modifiedPeptideSequence";
+    String PEPTIDOFORM = "peptidoform";
     String EXTERNAL_PROJECT_ACCESSION = "projectAccession";
     String EXTERNAL_REANALYSIS_ACCESSION = "reanalysisAccession";
     String PROTEIN_ASSAY_ACCESSION = "assayAccession";

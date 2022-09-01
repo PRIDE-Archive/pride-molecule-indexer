@@ -52,6 +52,9 @@ public class PridePsmSummaryEvidence implements PrideArchiveField{
     @JsonProperty(PrideArchiveField.MODIFIED_PEPTIDE_SEQUENCE)
     private String modifiedPeptideSequence;
 
+    @JsonProperty(PrideArchiveField.PEPTIDOFORM)
+    private String peptidoform;
+
     /** Additional Attributes **/
     @JsonProperty(PrideArchiveField.SCORES)
     private Set<Param> scores;

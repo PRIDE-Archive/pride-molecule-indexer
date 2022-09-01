@@ -610,14 +610,17 @@ public class PrideAnalysisAssayService {
                                             .collect(Collectors.toList());
 
                                 CvParam modCv = null;
-                                if (x.getModificationCvTerm() != null)
-                                    modCv = new CvParam(x.getModificationCvTerm().getCvLabel(),
+                                if (x.getModificationCvTerm() != null){
+                                    String cvLabel = x.getModificationCvTerm().getCvLabel();
+                                    if(x.getModificationCvTerm().getAccession().toUpperCase().contains("UNIMOD:"))
+                                        cvLabel = "UNIMOD";
+                                    modCv = new CvParam(cvLabel,
                                             x.getModificationCvTerm().getAccession(),
                                             x.getModificationCvTerm().getName(),
                                             x.getModificationCvTerm().getValue());
+                                }
 
                                 Set<CvParamProvider> modProperties = new HashSet<>();
-
                                 return new IdentifiedModification(neutralLoss, positionMap, modCv, modProperties);
                             }).collect(Collectors.toList());
 
@@ -636,6 +639,7 @@ public class PrideAnalysisAssayService {
                                 .reanalysisAccession(reanalysisAccession)
                                 .assayAccession(fileAccession)
                                 .peptideSequence(psm.getSequence())
+                                .peptidoform(SubmissionPipelineUtils.encodePSM(psm.getSequence(), psm.getModifications(), psm.getCharge()))
                                 .isDecoy(psm.getIsDecoy())
                                 .retentionTime(retentionTime)
                                 .msLevel(fileSpectrum.getMsLevel())
@@ -678,6 +682,7 @@ public class PrideAnalysisAssayService {
                                 .proteinAccessions(psm.getAccessions().stream().map(Accession::getAccession).collect(Collectors.toList()))
                                 .modifiedPeptideSequence(SubmissionPipelineUtils
                                         .encodePeptide(psm.getSequence(), psm.getModifications()))
+                                .peptidoform(SubmissionPipelineUtils.encodePSM(psm.getSequence(), psm.getModifications(), psm.getCharge()))
                                 .sampleProperties(localSampleProperties)
                                 .build();
 
