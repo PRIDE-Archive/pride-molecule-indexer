@@ -37,6 +37,10 @@ public class PridePsmSummaryEvidence implements PrideArchiveField{
     @JsonProperty(PrideArchiveField.EXTERNAL_PROJECT_ACCESSION)
     private String projectAccession;
 
+    /** External Project that contains the PSM **/
+    @JsonProperty(PrideArchiveField.EXTERNAL_REANALYSIS_ACCESSION)
+    private String reanalysisAccession;
+
     @JsonProperty("proteinAccessions")
     List<String> proteinAccessions;
 
@@ -47,6 +51,9 @@ public class PridePsmSummaryEvidence implements PrideArchiveField{
     /** Modified  Sequence **/
     @JsonProperty(PrideArchiveField.MODIFIED_PEPTIDE_SEQUENCE)
     private String modifiedPeptideSequence;
+
+    @JsonProperty(PrideArchiveField.PEPTIDOFORM)
+    private String peptidoform;
 
     /** Additional Attributes **/
     @JsonProperty(PrideArchiveField.SCORES)
@@ -73,6 +80,5 @@ public class PridePsmSummaryEvidence implements PrideArchiveField{
 
     @JsonProperty(PrideArchiveField.BEST_SEARCH_ENGINE)
     private Param bestSearchEngineScore;
-
 
 }

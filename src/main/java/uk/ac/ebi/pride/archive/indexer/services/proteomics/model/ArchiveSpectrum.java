@@ -26,8 +26,14 @@ public class ArchiveSpectrum implements PSMProvider {
     @JsonProperty("usi")
     String usi;
 
+    @JsonProperty("spectraUsi")
+    String spectraUsi;
+
     @JsonProperty("projectAccession")
     String projectAccession;
+
+    @JsonProperty("reanalysisAccession")
+    String reanalysisAccession;
 
     @JsonProperty("assayAccession")
     String assayAccession;
@@ -70,6 +76,9 @@ public class ArchiveSpectrum implements PSMProvider {
     @JsonProperty("peptideSequence")
     String peptideSequence;
 
+    @JsonProperty("peptidoform")
+    String peptidoform;
+
     @JsonProperty("proteinAccessions")
     List<String> proteinAccessions;
 
@@ -102,9 +111,11 @@ public class ArchiveSpectrum implements PSMProvider {
 
     public ArchiveSpectrum() { }
 
-    public ArchiveSpectrum(String usi, String projectAccession, String assayAccession, String spectrumFile, String sourceID, String spectrumTitle, Double[] masses, Double[] intensities, Integer numPeaks, Integer msLevel, Integer precursorCharge, Double precursorMz, Double retentionTime, Set<Param> properties, String peptideSequence, List<String> proteinAccessions, Integer missedCleavages, Collection<IdentifiedModification> modifications, List<String> annotations, Boolean isDecoy, Set<Param> qualityEstimationMethods, Boolean isValid, Set<Param> scores, Param bestSearchEngineScore, Set<Param> sampleProperties) {
+    public ArchiveSpectrum(String usi, String spectraUsi, String projectAccession, String reanalysisAccession, String assayAccession, String spectrumFile, String sourceID, String spectrumTitle, Double[] masses, Double[] intensities, Integer numPeaks, Integer msLevel, Integer precursorCharge, Double precursorMz, Double retentionTime, Set<Param> properties, String peptideSequence, String peptidoform, List<String> proteinAccessions, Integer missedCleavages, Collection<IdentifiedModification> modifications, List<String> annotations, Boolean isDecoy, Set<Param> qualityEstimationMethods, Boolean isValid, Set<Param> scores, Param bestSearchEngineScore, Set<Param> sampleProperties) {
         this.usi = usi;
+        this.spectraUsi = spectraUsi;
         this.projectAccession = projectAccession;
+        this.reanalysisAccession = reanalysisAccession;
         this.assayAccession = assayAccession;
         this.spectrumFile = spectrumFile;
         this.sourceID = sourceID;
@@ -118,6 +129,7 @@ public class ArchiveSpectrum implements PSMProvider {
         this.retentionTime = retentionTime;
         this.properties = properties;
         this.peptideSequence = peptideSequence;
+        this.peptidoform = peptidoform;
         this.proteinAccessions = proteinAccessions;
         this.missedCleavages = missedCleavages;
         this.modifications = modifications;

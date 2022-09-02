@@ -216,11 +216,11 @@ public class PrideAnalysisAssayService {
 
     }
 
-    public void writeAnalysisOutputFromResultFiles(String projectAccession, List<String> resultFiles, HashSet<String> spectraFiles, Set<String> sampleFiles, String folderOutput, boolean localReanalysis) throws IOException {
+    public void writeAnalysisOutputFromResultFiles(String projectAccession, List<String> resultFiles, HashSet<String> spectraFiles, Set<String> sampleFiles, String folderOutput, String reanalysisAccession) throws IOException {
 
         Optional<PrideProject> projectOption = prideArchiveWebService.findByAccession(projectAccession);
         List<PrideFile> projectFiles = new ArrayList<>();
-        if (!localReanalysis) {
+        if (reanalysisAccession == null) {
             projectFiles = prideArchiveWebService.findFilesByProjectAccession(projectAccession);
             if(projectFiles.size() == 0){
                 throw new IOException("Not files found in the PRIDE WS for accession: " + projectAccession);
@@ -244,7 +244,7 @@ public class PrideAnalysisAssayService {
             ) && !isCompressFile){
                 try {
                     String fileAccession = null;
-                    if (!localReanalysis){
+                    if (reanalysisAccession == null){
                         Optional<PrideFile> prideFile = findPrideFileInProjectFiles(resultFile, finalProjectFiles);
                         fileAccession = prideFile.map(PrideFile::getAccession).orElse(null);
                     }else{
@@ -255,8 +255,8 @@ public class PrideAnalysisAssayService {
                         Map<String, Object> assayObjectMap = analyzeAssayInformationStep(resultFile, fileAccession, fileType);
                         assayObjectMap = createBackupFiles(fileAccession, assayObjectMap, folderOutput, projectAccession);
 
-                        indexSpectraStep(projectAccession, fileAccession, assayObjectMap, spectraFiles);
-                        proteinIndexStep(fileAccession, assayObjectMap, projectAccession);
+                        indexSpectraStep(projectAccession, fileAccession, assayObjectMap, spectraFiles, reanalysisAccession);
+                        proteinIndexStep(fileAccession, assayObjectMap, projectAccession, reanalysisAccession);
 
                         closeBackupFiles(assayObjectMap);
 
@@ -414,6 +414,7 @@ public class PrideAnalysisAssayService {
 
         // Remove peptides less than 7 AAs
         filters.add(RegisteredFilters.PEPTIDE_SEQUENCE_LENGTH.newInstanceOf(FilterComparator.greater_equal, 7, false));
+        filters.add(RegisteredFilters.PSM_MODIFICATIONS_FILTER.newInstanceOf(FilterComparator.has_residue_modification, "A##UNIMOD:21", true));
 
         // Remove evidences at 1% FDR
         filters.add(new PSMScoreFilter(FilterComparator.less_equal, false,
@@ -425,7 +426,7 @@ public class PrideAnalysisAssayService {
         List<ReportProtein> proteins = modeller.getProteinModeller()
                 .getFilteredReportProteins(filters);
 
-        // The Assay to be consider should have decoy psms a minimun number of PSMS of 1000 (default value)
+        // The Assay to be considered should have decoy psms a minimun number of PSMS of 1000 (default value)
         if (!(nrDecoys > 0 && proteins.size() > 0 && psms.size() > minPSMs)) {
             throw new NumberFormatException("FDR calculation not possible, no decoys present or number of PSms not bigger than -- !!! " + minPSMs);
         }
@@ -439,7 +440,7 @@ public class PrideAnalysisAssayService {
 
     public void indexSpectraStep(String projectAccession, String fileAccession,
                                  Map<String, Object> assayObjects,
-                                 Set<String> spectraFiles) throws Exception {
+                                 Set<String> spectraFiles, String reanalysisAccession) throws Exception {
 
         long initSpectraStep = System.currentTimeMillis();
         log.info("indexSpectraStep assay file  -- " + assayObjects.get("modeller").toString());
@@ -494,8 +495,13 @@ public class PrideAnalysisAssayService {
                     }
                     fileName = FilenameUtils.getName(spectrumID.getFirst());
                     String usi = SubmissionPipelineUtils.buildUsi(projectAccession, fileName, psm, spectrumID.getSecond(), spectrumID.getThird());
+                    String reanalysisUsi = null;
+                    if(reanalysisAccession != null)
+                       reanalysisUsi = SubmissionPipelineUtils.buildUsi(reanalysisAccession, fileName, psm, spectrumID.getSecond(), spectrumID.getThird());
 
                     spectraUsi = SubmissionPipelineUtils.getSpectraUsiFromUsi(usi);
+                    if(reanalysisUsi != null)
+                        usi = reanalysisUsi;
 
                     Set<Param> localSampleProperties = new HashSet<>();
                     String fileNameNoExtension = SubmissionPipelineUtils.getFileNameNoExtension(fileName);
@@ -555,6 +561,17 @@ public class PrideAnalysisAssayService {
                         double retentionTime = Double.NaN;
                         if (psm.getRetentionTime() != null)
                             retentionTime = psm.getRetentionTime();
+                        else if (fileSpectrum != null && fileSpectrum.getAdditional() != null) {
+                            Optional<uk.ac.ebi.pride.tools.jmzreader.model.impl.CvParam> rtTerm = fileSpectrum.getAdditional().getCvParams().stream().filter(x -> x.getAccession().equalsIgnoreCase("MS:1000016")).findFirst();
+                            if(rtTerm.isPresent() && rtTerm.get().getValue() != null){
+                                try{
+                                    retentionTime = Double.parseDouble(rtTerm.get().getValue());
+                                }catch (NumberFormatException e){
+                                    log.info("Retention tiem from mzML is not Double -- " + rtTerm.get().getValue());
+                                }
+
+                            }
+                        }
 
                         List<Double> ptmMasses = psm.getModifications().values()
                                 .stream().map(Modification::getMass).collect(Collectors.toList());
@@ -566,10 +583,10 @@ public class PrideAnalysisAssayService {
 
 //                        log.info("Delta Mass -- " + deltaMass);
 
-                        if (deltaMass > 0.9) {
-                            errorDeltaPSM.set(errorDeltaPSM.get() + 1);
-                        }else if (deltaMass > 10){
+                        if (deltaMass > 10) {
                             throw new Exception(String.format("The delta mass for the following PSM --- %s is over 10", usi));
+                        }else if (deltaMass > 0.9){
+                            errorDeltaPSM.set(errorDeltaPSM.get() + 1);
                         }
 
                         /** PTMs parsing **/
@@ -594,14 +611,17 @@ public class PrideAnalysisAssayService {
                                             .collect(Collectors.toList());
 
                                 CvParam modCv = null;
-                                if (x.getModificationCvTerm() != null)
-                                    modCv = new CvParam(x.getModificationCvTerm().getCvLabel(),
+                                if (x.getModificationCvTerm() != null){
+                                    String cvLabel = x.getModificationCvTerm().getCvLabel();
+                                    if(x.getModificationCvTerm().getAccession().toUpperCase().contains("UNIMOD:"))
+                                        cvLabel = "UNIMOD";
+                                    modCv = new CvParam(cvLabel,
                                             x.getModificationCvTerm().getAccession(),
                                             x.getModificationCvTerm().getName(),
                                             x.getModificationCvTerm().getValue());
+                                }
 
                                 Set<CvParamProvider> modProperties = new HashSet<>();
-
                                 return new IdentifiedModification(neutralLoss, positionMap, modCv, modProperties);
                             }).collect(Collectors.toList());
 
@@ -614,11 +634,16 @@ public class PrideAnalysisAssayService {
                             misssedCleavages = uk.ac.ebi.pride.utilities.mol.MoleculeUtilities.calcMissedCleavages(psm.getSequence());
                         }
 
+                        if(psm.getSpectrum().getSourceID().contains("1223"))
+                            log.info("");
+
                         PSMProvider archivePSM = ArchiveSpectrum
                                 .builder()
                                 .projectAccession(projectAccession)
+                                .reanalysisAccession(reanalysisAccession)
                                 .assayAccession(fileAccession)
                                 .peptideSequence(psm.getSequence())
+                                .peptidoform(SubmissionPipelineUtils.encodePSM(psm.getSequence(), psm.getModifications(), psm.getCharge()))
                                 .isDecoy(psm.getIsDecoy())
                                 .retentionTime(retentionTime)
                                 .msLevel(fileSpectrum.getMsLevel())
@@ -630,9 +655,10 @@ public class PrideAnalysisAssayService {
                                 .modifications(mods)
                                 .precursorMz(fileSpectrum.getPrecursorMZ())
                                 .usi(usi)
+                                .spectraUsi(spectraUsi)
                                 .isValid(isValid)
                                 .missedCleavages(misssedCleavages)
-                                .proteinAccessions(psm.getAccessions().stream().map(x -> x.getAccession()).collect(Collectors.toList()))
+                                .proteinAccessions(psm.getAccessions().stream().map(Accession::getAccession).collect(Collectors.toList()))
                                 .qualityEstimationMethods(validationMethods.stream()
                                         .map(x -> new Param(x.getName(), x.getValue()))
                                         .collect(Collectors.toSet()))
@@ -652,13 +678,15 @@ public class PrideAnalysisAssayService {
                                 .charge(psm.getCharge())
                                 .isValid(isValid)
                                 .projectAccession(projectAccession)
+                                .reanalysisAccession(reanalysisAccession)
                                 .fileName(fileName)
                                 .scores(scores)
                                 .bestSearchEngineScore(bestSearchEngineScore)
                                 .precursorMass(psm.getMassToCharge())
-                                .proteinAccessions(psm.getAccessions().stream().map(x -> x.getAccession()).collect(Collectors.toList()))
+                                .proteinAccessions(psm.getAccessions().stream().map(Accession::getAccession).collect(Collectors.toList()))
                                 .modifiedPeptideSequence(SubmissionPipelineUtils
                                         .encodePeptide(psm.getSequence(), psm.getModifications()))
+                                .peptidoform(SubmissionPipelineUtils.encodePSM(psm.getSequence(), psm.getModifications(), psm.getCharge()))
                                 .sampleProperties(localSampleProperties)
                                 .build();
 
@@ -719,7 +747,11 @@ public class PrideAnalysisAssayService {
         List<uk.ac.ebi.pride.utilities.util.Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> files = spectraDataFiles.stream().map( x-> {
             for(String filePath: spectraFiles){
                 String xFileName = FilenameUtils.getName(filePath);
-                String spectraDataFileName = FilenameUtils.getName(x.getLocation());
+                String spectraFileName = x.getLocation();
+                if(SubmissionPipelineUtils.isCompressedByExtension(spectraFileName)){
+                    spectraFileName = SubmissionPipelineUtils.returnUnCompressPath(spectraFileName);
+                }
+                String spectraDataFileName = FilenameUtils.getName(spectraFileName);
                 if(xFileName.equalsIgnoreCase(spectraDataFileName)){
                     SubmissionPipelineUtils.FileType fileType = SubmissionPipelineUtils.FileType.getFileTypeFromFileName(xFileName);
                     if(fileType != null)
@@ -774,7 +806,7 @@ public class PrideAnalysisAssayService {
         }).findFirst();
 
     }
-    public void proteinIndexStep(String fileAccession, Map<String, Object> assayObjects, String projectAccession) throws Exception {
+    public void proteinIndexStep(String fileAccession, Map<String, Object> assayObjects, String projectAccession, String reanalysisAccession) throws Exception {
 
         long initInsertPeptides = System.currentTimeMillis();
 
@@ -838,6 +870,12 @@ public class PrideAnalysisAssayService {
                         }
 
                         Set<PeptideSpectrumOverview> proteinToPsms = new HashSet<>(proteinsToPsms.get(protein.getRepresentative().getAccession()));
+                        proteinToPsms = proteinToPsms.stream().collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(PeptideSpectrumOverview::getPeptideSequence))),
+                                        HashSet::new));
+
+                        log.info("Protein -- " + proteinAccession + " # PSMs -- " + proteinToPsms.size());
+
+
                         proteinIds.add(proteinAccession);
                         protein.getPeptides().forEach(x -> peptideSequences.add(x.getSequence()));
 
@@ -864,6 +902,7 @@ public class PrideAnalysisAssayService {
                                 .proteinGroupMembers(proteinGroups)
                                 .ptms(proteinPTMs)
                                 .projectAccession(projectAccession)
+                                .reanalysisAccession(reanalysisAccession)
                                 .assayAccession(fileAccession)
                                 .isValid(isValid)
                                 .numberPeptides(nPeptides)
@@ -1021,10 +1060,15 @@ public class PrideAnalysisAssayService {
             Modification ptm = ptmEntry.getValue();
             Integer position = ptmEntry.getKey();
             Set<CvParam> probabilities = ptm.getProbability()
-                    .stream().map(oldProbability -> new CvParam(oldProbability.getCvLabel(),
+                    .stream().map(oldProbability -> {
+                        String cvLabel = oldProbability.getCvLabel();
+                        if (cvLabel == null && oldProbability.getAccession().toUpperCase().contains("MS:"))
+                            cvLabel = "MS";
+                        return new CvParam(cvLabel,
                             oldProbability.getAccession(),
                             oldProbability.getName(),
-                            String.valueOf(oldProbability.getValue())))
+                            String.valueOf(oldProbability.getValue()));
+                    })
                     .collect(Collectors.toSet());
             // ignore modifications that can't be processed correctly (can not be mapped to the protein)
             if (ptm.getAccession() == null) {
@@ -1105,19 +1149,6 @@ public class PrideAnalysisAssayService {
                                 newPTM.addPosition(proteinPosition, probabilities);
                                 ptms.add(newPTM);
                             }
-
-//                            if (position > 0 && position < (item.getSequence().length() + 1)) {
-////                                mod.addPosition(position, null);
-////                                modifications.add(mod);
-////                                log.info(String.valueOf(proteinPosition));
-////                                log.info(ptm.getAccession());
-//                            } else if (position == 0) { //n-term for protein
-////                                mod.addPosition(position, null);
-////                                modifications.add(mod);
-////                                log.info(String.valueOf(proteinPosition));
-////                                log.info(ptm.getAccession());
-//
-//                            }
                         } else {
 //                            modifications.add(mod);
                             //if position is not set null is reported

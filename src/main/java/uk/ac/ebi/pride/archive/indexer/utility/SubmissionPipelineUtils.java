@@ -213,7 +213,7 @@ public class SubmissionPipelineUtils {
 //            return psm.getSourceID().replaceAll("mzMLid=", "");
 //        } else if (fileIdFormat == SpecIdFormat.SCAN_NUMBER_NATIVE_ID) {
 //            return psm.getSourceID().replaceAll("scan=", "");
-        } else if (fileIdFormat == SpecIdFormat.SPECTRUM_NATIVE_ID) {
+        } else if (fileIdFormat == SpecIdFormat.SPECTRUM_NATIVE_ID || fileIdFormat == SpecIdFormat.MZML_ID) {
             String[] partsScan = psm.getSourceID().split(" ");
             Optional<String> scanOptional = Arrays.stream(partsScan).filter(x -> x.contains("scan=")).findFirst();
             String id = scanOptional.map(s -> s.replaceAll("scan=", "")).orElseGet(psm::getSourceID);

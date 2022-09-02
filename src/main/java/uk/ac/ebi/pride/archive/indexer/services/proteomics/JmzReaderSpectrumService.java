@@ -38,7 +38,7 @@ public class JmzReaderSpectrumService {
             SubmissionPipelineUtils.FileType value = entry.getValue();
 
             if (value == SubmissionPipelineUtils.FileType.MGF) {
-                this.readers.put(key, new MgfFile(new File(key), true));
+                this.readers.put(key, new MgfFile(new File(key)));
             }
             if (value == SubmissionPipelineUtils.FileType.PRIDE) {
                 this.readers.put(key, new PRIDEXmlWrapper(new File(key)));
@@ -69,6 +69,9 @@ public class JmzReaderSpectrumService {
     public Spectrum getSpectrumById(String filePath, String id) throws JMzReaderException {
         JMzReader reader = readers.get(filePath);
         try{
+            if(id.startsWith("scan="))
+                id = id.replace("scan=", "");
+
             Spectrum spec = null;
             if(reader.getSpectraIds().contains(id)){
                 spec = reader.getSpectrumById(id);
@@ -77,9 +80,11 @@ public class JmzReaderSpectrumService {
              * In some cases the id is written wronly and the scan is annotated as controllerType=0 controllerNumber=1 scan=1 while in the
              * mzidentml is annotated as scan=1
              */
+            String finalId = id;
             if (spec == null){
+
                 List<Tuple<String, String>> spectra = reader.getSpectraIds()
-                        .stream().filter(x -> x.contains(id))
+                        .stream().filter(x -> x.contains(finalId))
                         .map(x -> new Tuple<>(x, x)).collect(Collectors.toList());
                 if(spectra.size() == 1)
                     spec =  reader.getSpectrumById(spectra.get(0).getValue());
@@ -92,7 +97,7 @@ public class JmzReaderSpectrumService {
                             }
                         }
                         return new Tuple<>(x,x);
-                    }).collect(Collectors.toList()).stream().filter(x -> x.getKey().equalsIgnoreCase("scan=" + id)).collect(Collectors.toList());
+                    }).collect(Collectors.toList()).stream().filter(x -> x.getKey().equalsIgnoreCase("scan=" + finalId)).collect(Collectors.toList());
                     if(spectra.size() == 1)
                         spec =  reader.getSpectrumById(spectra.get(0).getValue());
                 }

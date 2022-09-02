@@ -43,6 +43,9 @@ public class PrideProteinEvidence implements PrideArchiveField, ProteinDetailPro
     @JsonProperty(EXTERNAL_PROJECT_ACCESSION)
     private String projectAccession;
 
+    @JsonProperty(EXTERNAL_REANALYSIS_ACCESSION)
+    private String reanalysisAccession;
+
     /** Uniprot protein identifier mapper **/
     @JsonProperty(PrideArchiveField.UNIPROT_MAPPED_PROTEIN_ACCESSION)
     private String uniprotMappedProteinAccession;
@@ -167,7 +170,7 @@ public class PrideProteinEvidence implements PrideArchiveField, ProteinDetailPro
     }
 
     /**
-     * Add a to the list of modifications of a Protein.
+     * Add to the list of modifications of a Protein.
      * @param modification {@link IdentifiedModificationProvider}
      */
     public void addIdentifiedModification(String modification){
@@ -183,6 +186,7 @@ public class PrideProteinEvidence implements PrideArchiveField, ProteinDetailPro
                 ", reportedAccession='" + reportedAccession + '\'' +
                 ", assayAccession='" + assayAccession + '\'' +
                 ", projectAccession='" + projectAccession + '\'' +
+                ", reanalysisAccession='" + reanalysisAccession + '\'' +
                 ", uniprotMappedProteinAccession='" + uniprotMappedProteinAccession + '\'' +
                 ", ensemblMappedProteinAccession='" + ensemblMappedProteinAccession + '\'' +
                 ", proteinGroupMembers=" + proteinGroupMembers +
