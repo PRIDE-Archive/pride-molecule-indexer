@@ -414,6 +414,7 @@ public class PrideAnalysisAssayService {
 
         // Remove peptides less than 7 AAs
         filters.add(RegisteredFilters.PEPTIDE_SEQUENCE_LENGTH.newInstanceOf(FilterComparator.greater_equal, 7, false));
+        filters.add(RegisteredFilters.PSM_MODIFICATIONS_FILTER.newInstanceOf(FilterComparator.has_residue_modification, "A##UNIMOD:21", true));
 
         // Remove evidences at 1% FDR
         filters.add(new PSMScoreFilter(FilterComparator.less_equal, false,
@@ -632,6 +633,9 @@ public class PrideAnalysisAssayService {
                         if (misssedCleavages == -1){
                             misssedCleavages = uk.ac.ebi.pride.utilities.mol.MoleculeUtilities.calcMissedCleavages(psm.getSequence());
                         }
+
+                        if(psm.getSpectrum().getSourceID().contains("1223"))
+                            log.info("");
 
                         PSMProvider archivePSM = ArchiveSpectrum
                                 .builder()
