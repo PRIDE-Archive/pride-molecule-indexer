@@ -1,10 +1,10 @@
-reanalysis_accession, project_accession, provider, tags
-PRD000900, PXD000966, internal, identification|itraq
-PRD000901, PXD000923, external, identification|phosphoproteomics
-PRD000902, PXD002222, external, identification|phosphoproteomics
-PRD000903, PXD002756, external, identification|phosphoproteomics
-PRD000904, PXD004705, external, identification|phosphoproteomics
-PRD000905, PXD004939, external, identification|phosphoproteomics
-PRD000906, PXD005241, external, identification|phosphoproteomics
-PRD000907, PXD012764, external, identification|phosphoproteomics
-PRD000908, PXD019291, external, identification|phosphoproteomics
+reanalysis_accession, project_accession, provider, tags, status
+PRD000900, PXD000966, internal, identification|itraq, pending
+PRD000901, PXD000923, external, identification|phosphoproteomics, pending
+PRD000902, PXD002222, external, identification|phosphoproteomics, pending
+PRD000903, PXD002756, external, identification|phosphoproteomics, pending
+PRD000904, PXD004705, external, identification|phosphoproteomics, pending
+PRD000905, PXD004939, external, identification|phosphoproteomics, pending
+PRD000906, PXD005241, external, identification|phosphoproteomics, pending
+PRD000907, PXD012764, external, identification|phosphoproteomics, pending
+PRD000908, PXD019291, external, identification|phosphoproteomics, pending

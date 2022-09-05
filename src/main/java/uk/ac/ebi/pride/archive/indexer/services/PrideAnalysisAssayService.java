@@ -204,12 +204,15 @@ public class PrideAnalysisAssayService {
         log.info("Creating assay file  -- " + fileAccession);
 
         final String proteinEvidenceFileName = BackupUtil.getProteinEvidenceFile(folderOutput, projectAccession, fileAccession);
+        assayObjects.put("proteinEvidenceFileName", proteinEvidenceFileName);
         assayObjects.put("proteinEvidenceBufferedWriter", new BufferedWriter(new FileWriter(proteinEvidenceFileName, false)));
 
         final String archiveSpectrumFileName = BackupUtil.getArchiveSpectrumFile(folderOutput, projectAccession, fileAccession);
+        assayObjects.put("archiveSpectrumFileName", archiveSpectrumFileName);
         assayObjects.put("archiveSpectrumBufferedWriter", new BufferedWriter(new FileWriter(archiveSpectrumFileName, false)));
 
         final String psmSummaryEvidenceFileName = BackupUtil.getPsmSummaryEvidenceFile(folderOutput, projectAccession, fileAccession);
+        assayObjects.put("psmSummaryEvidenceFileName", psmSummaryEvidenceFileName);
         assayObjects.put("psmSummaryEvidenceBufferedWriter", new BufferedWriter(new FileWriter(psmSummaryEvidenceFileName, false)));
 
         return assayObjects;
@@ -240,6 +243,7 @@ public class PrideAnalysisAssayService {
         resultFiles.forEach(resultFile -> {
             SubmissionPipelineUtils.FileType fileType = SubmissionPipelineUtils.FileType.getFileTypeFromFileName(resultFile);
             boolean isCompressFile = SubmissionPipelineUtils.isCompressedByExtension(resultFile);
+            Map<String, Object> assayObjectMap = null;
             if((fileType == SubmissionPipelineUtils.FileType.MZTAB || fileType == SubmissionPipelineUtils.FileType.MZID
             ) && !isCompressFile){
                 try {
@@ -252,7 +256,7 @@ public class PrideAnalysisAssayService {
                     }
 
                     if(fileAccession != null){
-                        Map<String, Object> assayObjectMap = analyzeAssayInformationStep(resultFile, fileAccession, fileType);
+                        assayObjectMap = analyzeAssayInformationStep(resultFile, fileAccession, fileType);
                         assayObjectMap = createBackupFiles(fileAccession, assayObjectMap, folderOutput, projectAccession);
 
                         indexSpectraStep(projectAccession, fileAccession, assayObjectMap, spectraFiles, reanalysisAccession);
@@ -265,6 +269,7 @@ public class PrideAnalysisAssayService {
                     }
                 } catch (Exception e) {
                     log.error("Assay -- " + resultFile + " can't be process because of the following error -- " + e.getMessage());
+                    deleteFailingOutputFiles(assayObjectMap);
                 }
             }
         });
@@ -1162,4 +1167,22 @@ public class PrideAnalysisAssayService {
 
     }
 
+    public void deleteFailingOutputFiles(Map<String, Object> assayObjectMap) {
+        try{
+            if(assayObjectMap.containsKey("proteinEvidenceFileName")){
+                String fileToDelete = (String) assayObjectMap.get("proteinEvidenceFileName");
+                Files.deleteIfExists(new File(fileToDelete).toPath());
+            }
+            if(assayObjectMap.containsKey("archiveSpectrumFileName")){
+                String fileToDelete = (String) assayObjectMap.get("archiveSpectrumFileName");
+                Files.deleteIfExists(new File(fileToDelete).toPath());
+            }
+            if(assayObjectMap.containsKey("psmSummaryEvidenceFileName")){
+                String fileToDelete = (String) assayObjectMap.get("psmSummaryEvidenceFileName");
+                Files.deleteIfExists(new File(fileToDelete).toPath());
+            }
+        } catch (IOException e) {
+          throw new RuntimeException(e);
+        }
+    }
 }
