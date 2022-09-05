@@ -256,8 +256,9 @@ public class PrideAnalysisAssayService {
                     }
 
                     if(fileAccession != null){
+                        String folderAccession = reanalysisAccession != null?reanalysisAccession:projectAccession;
                         assayObjectMap = analyzeAssayInformationStep(resultFile, fileAccession, fileType);
-                        assayObjectMap = createBackupFiles(fileAccession, assayObjectMap, folderOutput, projectAccession);
+                        assayObjectMap = createBackupFiles(fileAccession, assayObjectMap, folderOutput, folderAccession);
 
                         indexSpectraStep(projectAccession, fileAccession, assayObjectMap, spectraFiles, reanalysisAccession);
                         proteinIndexStep(fileAccession, assayObjectMap, projectAccession, reanalysisAccession);
@@ -1169,15 +1170,15 @@ public class PrideAnalysisAssayService {
 
     public void deleteFailingOutputFiles(Map<String, Object> assayObjectMap) {
         try{
-            if(assayObjectMap.containsKey("proteinEvidenceFileName")){
+            if(assayObjectMap !=null && assayObjectMap.containsKey("proteinEvidenceFileName")){
                 String fileToDelete = (String) assayObjectMap.get("proteinEvidenceFileName");
                 Files.deleteIfExists(new File(fileToDelete).toPath());
             }
-            if(assayObjectMap.containsKey("archiveSpectrumFileName")){
+            if(assayObjectMap !=null && assayObjectMap.containsKey("archiveSpectrumFileName")){
                 String fileToDelete = (String) assayObjectMap.get("archiveSpectrumFileName");
                 Files.deleteIfExists(new File(fileToDelete).toPath());
             }
-            if(assayObjectMap.containsKey("psmSummaryEvidenceFileName")){
+            if(assayObjectMap !=null && assayObjectMap.containsKey("psmSummaryEvidenceFileName")){
                 String fileToDelete = (String) assayObjectMap.get("psmSummaryEvidenceFileName");
                 Files.deleteIfExists(new File(fileToDelete).toPath());
             }
