@@ -138,7 +138,6 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
                 analysisAssayService.writeAnalysisOutputFromResultFiles(projectAccession, resultFileOptions, new HashSet<>(spectraFiles), new HashSet<>(sampleFileOptions), fileOutput, reanalysisAccession);
             }catch (IOException e){
                 log.error("Project --- " + projectAccession + "can't be analyzed due the following error --- " + e.getMessage());
-                analysisAssayService.deleteFailingOuputFiles(projectAccession, resultFileOptions, new HashSet<>(spectraFiles), new HashSet<>(sampleFileOptions), fileOutput, reanalysisAccession);
             }
         }
 
