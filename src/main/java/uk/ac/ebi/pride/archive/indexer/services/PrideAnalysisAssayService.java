@@ -875,58 +875,61 @@ public class PrideAnalysisAssayService {
                             scores.add(score);
                         }
 
-                        Set<PeptideSpectrumOverview> proteinToPsms = new HashSet<>(proteinsToPsms.get(protein.getRepresentative().getAccession()));
-                        proteinToPsms = proteinToPsms.stream().collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(PeptideSpectrumOverview::getPeptideSequence))),
-                                        HashSet::new));
+                        if(protein.getRepresentative() != null && protein.getRepresentative().getAccession() != null
+                                && proteinsToPsms.containsKey(protein.getRepresentative().getAccession())){
+                            Set<PeptideSpectrumOverview> proteinToPsms = new HashSet<>(proteinsToPsms.get(protein.getRepresentative().getAccession()));
+                            proteinToPsms = proteinToPsms.stream().collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(PeptideSpectrumOverview::getPeptideSequence))),
+                                    HashSet::new));
 
-                        log.info("Protein -- " + proteinAccession + " # PSMs -- " + proteinToPsms.size());
+                            log.info("Protein -- " + proteinAccession + " # PSMs -- " + proteinToPsms.size());
 
 
-                        proteinIds.add(proteinAccession);
-                        protein.getPeptides().forEach(x -> peptideSequences.add(x.getSequence()));
+                            proteinIds.add(proteinAccession);
+                            protein.getPeptides().forEach(x -> peptideSequences.add(x.getSequence()));
 
-                        Set<CvParam> validationMethods = (Set<CvParam>) assayObjects.get("validationMethods");
+                            Set<CvParam> validationMethods = (Set<CvParam>) assayObjects.get("validationMethods");
 
-                        boolean isValid = (boolean) assayObjects.get("isValid");
+                            boolean isValid = (boolean) assayObjects.get("isValid");
 
-                        int nPSMs = proteinToPsms.size();
-                        int nPeptides = proteinToPsms.stream().map(PeptideSpectrumOverview::getPeptideSequence).collect(Collectors.toSet()).size();
+                            int nPSMs = proteinToPsms.size();
+                            int nPeptides = proteinToPsms.stream().map(PeptideSpectrumOverview::getPeptideSequence).collect(Collectors.toSet()).size();
 
-                        Double coverage = protein.getCoverage(proteinAccession);
-                        if(coverage.equals(Double.NaN) || coverage.equals(Double.POSITIVE_INFINITY))
-                            coverage = null;
+                            Double coverage = protein.getCoverage(proteinAccession);
+                            if(coverage.equals(Double.NaN) || coverage.equals(Double.POSITIVE_INFINITY))
+                                coverage = null;
 
-                        String proteinSequence = null;
-                        if(protein.getAccessions().stream().anyMatch(y -> y.getAccession().equalsIgnoreCase(proteinAccession))){
-                            proteinSequence = protein.getAccessions().stream().filter( y -> y.getAccession().equalsIgnoreCase(proteinAccession)).findAny().get().getDbSequence();
-                        }
+                            String proteinSequence = null;
+                            if(protein.getAccessions().stream().anyMatch(y -> y.getAccession().equalsIgnoreCase(proteinAccession))){
+                                proteinSequence = protein.getAccessions().stream().filter( y -> y.getAccession().equalsIgnoreCase(proteinAccession)).findAny().get().getDbSequence();
+                            }
 
-                        PrideProteinEvidence proteinEvidence = PrideProteinEvidence
-                                .builder()
-                                .reportedAccession(proteinAccession)
-                                .isDecoy(protein.getIsDecoy())
-                                .proteinGroupMembers(proteinGroups)
-                                .ptms(proteinPTMs)
-                                .projectAccession(projectAccession)
-                                .reanalysisAccession(reanalysisAccession)
-                                .assayAccession(fileAccession)
-                                .isValid(isValid)
-                                .numberPeptides(nPeptides)
-                                .numberPSMs(nPSMs)
-                                .scores(scores)
-                                .bestSearchEngineScore(bestSearchEngineScore)
-                                .sequenceCoverage(coverage)
-                                .proteinSequence(proteinSequence)
-                                .qualityEstimationMethods(validationMethods.stream().map(x -> new Param(x.getName(), x.getValue())).collect(Collectors.toSet()))
-                                .psmAccessions(proteinToPsms)
-                                .build();
+                            PrideProteinEvidence proteinEvidence = PrideProteinEvidence
+                                    .builder()
+                                    .reportedAccession(proteinAccession)
+                                    .isDecoy(protein.getIsDecoy())
+                                    .proteinGroupMembers(proteinGroups)
+                                    .ptms(proteinPTMs)
+                                    .projectAccession(projectAccession)
+                                    .reanalysisAccession(reanalysisAccession)
+                                    .assayAccession(fileAccession)
+                                    .isValid(isValid)
+                                    .numberPeptides(nPeptides)
+                                    .numberPSMs(nPSMs)
+                                    .scores(scores)
+                                    .bestSearchEngineScore(bestSearchEngineScore)
+                                    .sequenceCoverage(coverage)
+                                    .proteinSequence(proteinSequence)
+                                    .qualityEstimationMethods(validationMethods.stream().map(x -> new Param(x.getName(), x.getValue())).collect(Collectors.toSet()))
+                                    .psmAccessions(proteinToPsms)
+                                    .build();
 
-                        try {
-                            BackupUtil.write(proteinEvidence, (BufferedWriter) assayObjects.get("proteinEvidenceBufferedWriter"));
-                            log.info(String.format("Protein %s -- Number of peptides %s", protein.getRepresentative().getAccession(), nPeptides));
-                        }catch (Exception e) {
-                            log.error(e.getMessage(), e);
-                            throw new Exception(e);
+                            try {
+                                BackupUtil.write(proteinEvidence, (BufferedWriter) assayObjects.get("proteinEvidenceBufferedWriter"));
+                                log.info(String.format("Protein %s -- Number of peptides %s", protein.getRepresentative().getAccession(), nPeptides));
+                            }catch (Exception e) {
+                                log.error(e.getMessage(), e);
+                                throw new Exception(e);
+                            }
                         }
                     }else{
                         log.info("Protein Accession already in report -- " + protein.getRepresentative().getAccession());
