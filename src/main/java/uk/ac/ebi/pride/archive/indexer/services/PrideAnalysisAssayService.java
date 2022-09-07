@@ -500,6 +500,14 @@ public class PrideAnalysisAssayService {
                         fileSpectrum = finalService.getSpectrumById(spectrumID.getFirst(), spectrumID.getSecond());
                     }
                     fileName = FilenameUtils.getName(spectrumID.getFirst());
+
+                    // Validation that the id number should be a valid integer
+                    try {
+                        Integer.parseInt(spectrumID.getSecond());
+                    } catch(NumberFormatException e){
+                        throw new NumberFormatException("The current accession -- " + spectrumID.getSecond() + " is not a valid scan");
+                    }
+
                     String usi = SubmissionPipelineUtils.buildUsi(projectAccession, fileName, psm, spectrumID.getSecond(), spectrumID.getThird());
                     String reanalysisUsi = null;
                     if(reanalysisAccession != null)
