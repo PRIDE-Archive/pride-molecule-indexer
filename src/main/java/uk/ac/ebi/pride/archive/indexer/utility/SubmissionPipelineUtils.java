@@ -233,7 +233,7 @@ public class SubmissionPipelineUtils {
         String spectraUsi;
         String[] usiArray = usi.split(":");
         String[] subset = Arrays.copyOfRange(usiArray, 0, 5);
-        subset[2] = getFileNameNoExtension(subset[2]);
+//        subset[2] = getFileNameNoExtension(subset[2]);
         spectraUsi = String.join(":", subset);
         return spectraUsi;
     }
@@ -274,6 +274,7 @@ public class SubmissionPipelineUtils {
             id = idNative.substring(1, idNative.length());
 
         }
+        fileName = getFileNameNoExtension(fileName);
         return Constants.SPECTRUM_S3_HEADER + projectAccession + ":" + fileName + ":" + scanType.getName() + ":" + id + ":" + encodePSM(psm.getSequence(), psm.getModifications(), psm.getCharge());
     }
 
