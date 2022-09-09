@@ -2,15 +2,15 @@ package uk.ac.ebi.pride.archive.indexer.utility;
 
 public class Constants {
 
-    public static String SPECTRUM_S3_HEADER = "mzspec:";
+    public static final String SPECTRUM_S3_HEADER = "mzspec:";
 
     public enum ScanType{
         INDEX("index"),
-        SCAN("scan");
+        SCAN("scan"), NATIVE_ID("nativeId");
 
-        private String name;
+        private final String name;
 
-        private ScanType(String name){
+        ScanType(String name){
             this.name = name;
         }
 
