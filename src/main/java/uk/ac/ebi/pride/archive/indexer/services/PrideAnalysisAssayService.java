@@ -13,8 +13,10 @@ import de.mpc.pia.modeller.report.filter.FilterComparator;
 import de.mpc.pia.modeller.report.filter.RegisteredFilters;
 import de.mpc.pia.modeller.report.filter.impl.PSMScoreFilter;
 import de.mpc.pia.modeller.score.ScoreModelEnum;
+import de.mpc.pia.tools.obo.OboMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
+import org.biojava.nbio.ontology.Term;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -24,15 +26,15 @@ import uk.ac.ebi.jmzidml.model.mzidml.AbstractParam;
 import uk.ac.ebi.jmzidml.model.mzidml.SpectraData;
 import uk.ac.ebi.pride.archive.dataprovider.common.Tuple;
 import uk.ac.ebi.pride.archive.dataprovider.data.peptide.PSMProvider;
-import uk.ac.ebi.pride.archive.dataprovider.data.peptide.PeptideSpectrumOverview;
+import uk.ac.ebi.pride.archive.dataprovider.data.protein.PeptideSpectrumOverview;
 import uk.ac.ebi.pride.archive.dataprovider.data.ptm.IdentifiedModification;
 import uk.ac.ebi.pride.archive.dataprovider.data.ptm.IdentifiedModificationProvider;
 import uk.ac.ebi.pride.archive.dataprovider.param.CvParam;
 import uk.ac.ebi.pride.archive.dataprovider.param.CvParamProvider;
+import uk.ac.ebi.pride.archive.dataprovider.data.spectra.ArchiveSpectrum;
+import uk.ac.ebi.pride.archive.dataprovider.data.protein.ArchiveProteinEvidence;
+import uk.ac.ebi.pride.archive.dataprovider.data.spectra.SummaryArchiveSpectrum;
 import uk.ac.ebi.pride.archive.dataprovider.param.Param;
-import uk.ac.ebi.pride.archive.indexer.services.proteomics.model.ArchiveSpectrum;
-import uk.ac.ebi.pride.archive.indexer.services.proteomics.model.PrideProteinEvidence;
-import uk.ac.ebi.pride.archive.indexer.services.proteomics.model.PridePsmSummaryEvidence;
 import uk.ac.ebi.pride.archive.indexer.utility.HashUtils;
 import uk.ac.ebi.pride.archive.indexer.utility.SubmissionPipelineUtils;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.JmzReaderSpectrumService;
@@ -83,6 +85,9 @@ public class PrideAnalysisAssayService {
     private int minPSMs;
 
     final DecimalFormat df = new DecimalFormat("###.#####");
+
+    static OboMapper psiOboMapper = OboMapper.getPSIOboMapper(true);
+    static final OboMapper efoOboMapper = OboMapper.getEFOOboMapper(false);
 
     @Bean
     PIAModelerService getPIAModellerService() {
@@ -188,7 +193,7 @@ public class PrideAnalysisAssayService {
     }
 
     /**
-     * Create Backup folders for an specific resultFile and assay.
+     * Create Backup folders for a specific resultFile and assay.
      * @param fileAccession file accession, hash
      * @param assayObjects AssayObjects to store the protein/peptide/psms information
      * @param folderOutput Root folder containing all the backup files
@@ -247,7 +252,7 @@ public class PrideAnalysisAssayService {
             if((fileType == SubmissionPipelineUtils.FileType.MZTAB || fileType == SubmissionPipelineUtils.FileType.MZID
             ) && !isCompressFile){
                 try {
-                    String fileAccession = null;
+                    String fileAccession;
                     if (reanalysisAccession == null){
                         Optional<PrideFile> prideFile = findPrideFileInProjectFiles(resultFile, finalProjectFiles);
                         fileAccession = prideFile.map(PrideFile::getAccession).orElse(null);
@@ -258,7 +263,7 @@ public class PrideAnalysisAssayService {
                     if(fileAccession != null){
                         String folderAccession = reanalysisAccession != null?reanalysisAccession:projectAccession;
                         assayObjectMap = analyzeAssayInformationStep(resultFile, fileAccession, fileType);
-                        assayObjectMap = createBackupFiles(fileAccession, assayObjectMap, folderOutput, folderAccession);
+                        createBackupFiles(fileAccession, assayObjectMap, folderOutput, folderAccession);
 
                         indexSpectraStep(projectAccession, fileAccession, assayObjectMap, spectraFiles, reanalysisAccession);
                         proteinIndexStep(fileAccession, assayObjectMap, projectAccession, reanalysisAccession);
@@ -310,7 +315,13 @@ public class PrideAnalysisAssayService {
                             String key = header.get(index);
                             key = key.substring(key.indexOf("[")+1,key.indexOf("]"));
                             String value = sample.get(index);
-                            Param param = new Param(key, value);
+                            // We need to find here the EFO terms
+                            Term term = efoOboMapper.getTermByName(key);
+                            String accession = null;
+                            if(term != null){
+                                accession = term.getName();
+                            }
+                            Param param = new Param(accession, key, value);
                             fileSamples.add(param);
                         });
                         if(!this.sampleProperties.containsKey(sampleFileName))
@@ -468,7 +479,7 @@ public class PrideAnalysisAssayService {
             AtomicInteger totalPSM = new AtomicInteger();
             AtomicInteger errorDeltaPSM = new AtomicInteger();
 
-            List<uk.ac.ebi.pride.utilities.util.Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> relatedFiles = null;
+            List<uk.ac.ebi.pride.utilities.util.Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> relatedFiles;
             relatedFiles = getRelatedFiles(spectrumFiles, spectraFiles);
             if (spectrumFiles.size() == 0) {
                     throw new Exception("No spectra file found");
@@ -503,15 +514,16 @@ public class PrideAnalysisAssayService {
 
                     // Validation that the id number should be a valid integer
                     try {
-                        Integer.parseInt(spectrumID.getSecond());
+                        if(!SubmissionPipelineUtils.isValidWiffId(spectrumID.getSecond()))
+                            Integer.parseInt(spectrumID.getSecond());
                     } catch(NumberFormatException e){
                         throw new NumberFormatException("The current accession -- " + spectrumID.getSecond() + " is not a valid scan");
                     }
 
-                    String usi = SubmissionPipelineUtils.buildUsi(projectAccession, fileName, psm, spectrumID.getSecond(), spectrumID.getThird());
+                    String usi = SubmissionPipelineUtils.buildUsi(projectAccession, fileName, psm, spectrumID.getSecond(), spectrumID.getThird(), SubmissionPipelineUtils.isValidWiffId(spectrumID.getSecond()));
                     String reanalysisUsi = null;
                     if(reanalysisAccession != null)
-                       reanalysisUsi = SubmissionPipelineUtils.buildUsi(reanalysisAccession, fileName, psm, spectrumID.getSecond(), spectrumID.getThird());
+                       reanalysisUsi = SubmissionPipelineUtils.buildUsi(reanalysisAccession, fileName, psm, spectrumID.getSecond(), spectrumID.getThird(), SubmissionPipelineUtils.isValidWiffId(spectrumID.getSecond()));
 
                     spectraUsi = SubmissionPipelineUtils.getSpectraUsiFromUsi(usi);
                     if(reanalysisUsi != null)
@@ -545,14 +557,14 @@ public class PrideAnalysisAssayService {
                                     && !Objects.equals(scoreModel.getCvAccession(), "MS:1002354")) {
                                 for (CvTermReference ref : CvTermReference.values()) {
                                     if (ref.getAccession().equalsIgnoreCase(scoreModel.getCvAccession()))
-                                        scores.add(new Param(ref.getName(),String.valueOf(scoreValue)));
+                                        scores.add(new Param(ref.getAccession(), ref.getName(),String.valueOf(scoreValue)));
                                 }
                             }
                         }
 
                         /** Capture best search engine score **/
                         double piaQvalue = SubmissionPipelineUtils.getQValueLower(psm.getQValue(), qvalues);
-                        Param bestSearchEngineScore = new Param(CvTermReference.MS_PIA_PSM_LEVEL_QVALUE.getName(), String.valueOf(piaQvalue));
+                        Param bestSearchEngineScore = new Param(CvTermReference.MS_PIA_PSM_LEVEL_QVALUE.getAccession(), CvTermReference.MS_PIA_PSM_LEVEL_QVALUE.getName(), String.valueOf(piaQvalue));
                         scores.add(bestSearchEngineScore);
 
 
@@ -563,19 +575,19 @@ public class PrideAnalysisAssayService {
                                 if (abstractParam instanceof uk.ac.ebi.jmzidml.model.mzidml.CvParam) {
                                     uk.ac.ebi.jmzidml.model.mzidml.CvParam cvParam = (uk.ac.ebi.jmzidml.model.mzidml.CvParam) abstractParam;
                                     if (cvParam.getAccession() != null)
-                                        properties.add(new Param(cvParam.getName(), cvParam.getValue()));
+                                        properties.add(new Param(cvParam.getAccession(), cvParam.getName(), cvParam.getValue()));
                                 }
                             }
                         }
 
                         double piaFDR = SubmissionPipelineUtils.getQValueLower(psm.getFDRScore().getValue(), fdrValues);
-                        scores.add(new Param(CvTermReference.MS_PIA_PSM_LEVEL_FDRSCORE.getName(), String.valueOf(piaFDR)));
+                        scores.add(new Param(CvTermReference.MS_PIA_PSM_LEVEL_FDRSCORE.getAccession(), CvTermReference.MS_PIA_PSM_LEVEL_FDRSCORE.getName(), String.valueOf(piaFDR)));
                         log.info(String.valueOf(piaQvalue));
 
                         double retentionTime = Double.NaN;
                         if (psm.getRetentionTime() != null)
                             retentionTime = psm.getRetentionTime();
-                        else if (fileSpectrum != null && fileSpectrum.getAdditional() != null) {
+                        else if (fileSpectrum.getAdditional() != null) {
                             Optional<uk.ac.ebi.pride.tools.jmzreader.model.impl.CvParam> rtTerm = fileSpectrum.getAdditional().getCvParams().stream().filter(x -> x.getAccession().equalsIgnoreCase("MS:1000016")).findFirst();
                             if(rtTerm.isPresent() && rtTerm.get().getValue() != null){
                                 try{
@@ -655,6 +667,8 @@ public class PrideAnalysisAssayService {
                                 .builder()
                                 .projectAccession(projectAccession)
                                 .reanalysisAccession(reanalysisAccession)
+                                .sourceID(psm.getSourceID())
+                                .spectrumTitle(psm.getSpectrumTitle())
                                 .assayAccession(fileAccession)
                                 .peptideSequence(psm.getSequence())
                                 .peptidoform(SubmissionPipelineUtils.encodePSM(psm.getSequence(), psm.getModifications(), psm.getCharge()))
@@ -674,7 +688,7 @@ public class PrideAnalysisAssayService {
                                 .missedCleavages(misssedCleavages)
                                 .proteinAccessions(psm.getAccessions().stream().map(Accession::getAccession).collect(Collectors.toList()))
                                 .qualityEstimationMethods(validationMethods.stream()
-                                        .map(x -> new Param(x.getName(), x.getValue()))
+                                        .map(x -> new Param(x.getAccession(), x.getName(), x.getValue()))
                                         .collect(Collectors.toSet()))
                                 .properties(properties)
                                 .bestSearchEngineScore(bestSearchEngineScore)
@@ -682,21 +696,22 @@ public class PrideAnalysisAssayService {
                                 .sampleProperties(localSampleProperties)
                                 .build();
 
-                        PridePsmSummaryEvidence psmMongo = PridePsmSummaryEvidence
+                        SummaryArchiveSpectrum psmElastic = SummaryArchiveSpectrum
                                 .builder()
                                 .usi(usi)
                                 .spectraUsi(spectraUsi)
                                 .peptideSequence(psm.getSequence())
                                 .assayAccession(fileAccession)
                                 .isDecoy(psm.getIsDecoy())
-                                .charge(psm.getCharge())
+                                .precursorCharge(psm.getCharge())
                                 .isValid(isValid)
                                 .projectAccession(projectAccession)
                                 .reanalysisAccession(reanalysisAccession)
-                                .fileName(fileName)
+                                .spectrumFile(fileName)
                                 .scores(scores)
+                                .numPeaks(intensities.length)
                                 .bestSearchEngineScore(bestSearchEngineScore)
-                                .precursorMass(psm.getMassToCharge())
+                                .precursorMz(psm.getMassToCharge())
                                 .proteinAccessions(psm.getAccessions().stream().map(Accession::getAccession).collect(Collectors.toList()))
                                 .modifiedPeptideSequence(SubmissionPipelineUtils
                                         .encodePeptide(psm.getSequence(), psm.getModifications()))
@@ -704,14 +719,11 @@ public class PrideAnalysisAssayService {
                                 .sampleProperties(localSampleProperties)
                                 .build();
 
-//                        log.info(psmMongo.toString());
-//                        log.info(archivePSM.toString());
-
                         try {
                             BackupUtil.write(archivePSM, (BufferedWriter) assayObjects.get("archiveSpectrumBufferedWriter"));
-                            BackupUtil.write(psmMongo, (BufferedWriter) assayObjects.get("psmSummaryEvidenceBufferedWriter"));
+                            BackupUtil.write(psmElastic, (BufferedWriter) assayObjects.get("psmSummaryEvidenceBufferedWriter"));
                         } catch (Exception ex) {
-                            log.debug("Error writing the PSMs in the files -- " + psmMongo.getUsi());
+                            log.debug("Error writing the PSMs in the files -- " + psmElastic.getUsi());
                         }
 
                         PeptideSpectrumOverview psmOverview = new PeptideSpectrumOverview(psm.getCharge(), psm.getMassToCharge(), usi,psm.getSequence(),SubmissionPipelineUtils.encodePeptide(psm.getSequence(), psm.getModifications()));
@@ -853,7 +865,6 @@ public class PrideAnalysisAssayService {
                     if (!accessions.contains(proteinKey)){
 
                         accessions.add(proteinKey);
-                        String proteinAccession = proteinKey;
                         Set<String> proteinGroups = protein.getAccessions()
                                 .stream().map(Accession::getAccession)
                                 .collect(Collectors.toSet());
@@ -866,20 +877,20 @@ public class PrideAnalysisAssayService {
 
                         if (Double.isFinite(protein.getQValue()) && !Double.isNaN(protein.getQValue())) {
                             Double qValue = SubmissionPipelineUtils.getQValueLower(protein.getQValue(), qValues);
-                            Param score = new Param(CvTermReference.MS_PIA_PROTEIN_GROUP_QVALUE.getName(), String.valueOf(qValue));
+                            Param score = new Param(CvTermReference.MS_PIA_PROTEIN_GROUP_QVALUE.getAccession(), CvTermReference.MS_PIA_PROTEIN_GROUP_QVALUE.getName(), String.valueOf(qValue));
                             scores.add(score);
                         }
 
                         if (protein.getScore() != null && !protein.getScore().isNaN()) {
                             String value = df.format(protein.getScore());
-                            bestSearchEngineScore = new Param(CvTermReference.MS_PIA_PROTEIN_SCORE.getName(), value);
+                            bestSearchEngineScore = new Param(CvTermReference.MS_PIA_PROTEIN_SCORE.getAccession(), CvTermReference.MS_PIA_PROTEIN_SCORE.getName(), value);
                             scores.add(bestSearchEngineScore);
                         }
 
                         if (Double.isFinite(protein.getFDR()) && !Double.isNaN(protein.getFDR())) {
 
                             Double fdr = SubmissionPipelineUtils.getQValueLower(protein.getFDR(), fdrValues);
-                            Param score = new Param(CvTermReference.MS_FDR_PROTEIN.getName(), String.valueOf(fdr));
+                            Param score = new Param(CvTermReference.MS_FDR_PROTEIN.getAccession(), CvTermReference.MS_FDR_PROTEIN.getName(), String.valueOf(fdr));
                             scores.add(score);
                         }
 
@@ -889,10 +900,10 @@ public class PrideAnalysisAssayService {
                             proteinToPsms = proteinToPsms.stream().collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(PeptideSpectrumOverview::getPeptideSequence))),
                                     HashSet::new));
 
-                            log.info("Protein -- " + proteinAccession + " # PSMs -- " + proteinToPsms.size());
+                            log.info("Protein -- " + proteinKey + " # PSMs -- " + proteinToPsms.size());
 
 
-                            proteinIds.add(proteinAccession);
+                            proteinIds.add(proteinKey);
                             protein.getPeptides().forEach(x -> peptideSequences.add(x.getSequence()));
 
                             Set<CvParam> validationMethods = (Set<CvParam>) assayObjects.get("validationMethods");
@@ -902,21 +913,21 @@ public class PrideAnalysisAssayService {
                             int nPSMs = proteinToPsms.size();
                             int nPeptides = proteinToPsms.stream().map(PeptideSpectrumOverview::getPeptideSequence).collect(Collectors.toSet()).size();
 
-                            Double coverage = protein.getCoverage(proteinAccession);
+                            Double coverage = protein.getCoverage(proteinKey);
                             if(coverage.equals(Double.NaN) || coverage.equals(Double.POSITIVE_INFINITY))
                                 coverage = null;
 
                             String proteinSequence = null;
-                            if(protein.getAccessions().stream().anyMatch(y -> y.getAccession().equalsIgnoreCase(proteinAccession))){
-                                proteinSequence = protein.getAccessions().stream().filter( y -> y.getAccession().equalsIgnoreCase(proteinAccession)).findAny().get().getDbSequence();
+                            if(protein.getAccessions().stream().anyMatch(y -> y.getAccession().equalsIgnoreCase(proteinKey))){
+                                proteinSequence = protein.getAccessions().stream().filter( y -> y.getAccession().equalsIgnoreCase(proteinKey)).findAny().get().getDbSequence();
                             }
 
-                            PrideProteinEvidence proteinEvidence = PrideProteinEvidence
+                            ArchiveProteinEvidence proteinEvidence = ArchiveProteinEvidence
                                     .builder()
-                                    .reportedAccession(proteinAccession)
+                                    .reportedAccession(proteinKey)
                                     .isDecoy(protein.getIsDecoy())
                                     .proteinGroupMembers(proteinGroups)
-                                    .ptms(proteinPTMs)
+                                    .modificationsNames(proteinPTMs)
                                     .projectAccession(projectAccession)
                                     .reanalysisAccession(reanalysisAccession)
                                     .assayAccession(fileAccession)
@@ -927,7 +938,7 @@ public class PrideAnalysisAssayService {
                                     .bestSearchEngineScore(bestSearchEngineScore)
                                     .sequenceCoverage(coverage)
                                     .proteinSequence(proteinSequence)
-                                    .qualityEstimationMethods(validationMethods.stream().map(x -> new Param(x.getName(), x.getValue())).collect(Collectors.toSet()))
+                                    .qualityEstimationMethods(validationMethods.stream().map(x -> new Param(x.getAccession(), x.getName(), x.getValue())).collect(Collectors.toSet()))
                                     .psmAccessions(proteinToPsms)
                                     .build();
 
@@ -948,120 +959,8 @@ public class PrideAnalysisAssayService {
     }
 
     private List<String> convertProteinModifications(List<ReportPeptide> peptides) {
-        return new ArrayList<>(peptides.parallelStream().map(x -> x.getModifications().values().parallelStream().map(Modification::getDescription).collect(Collectors.toList())).flatMap(List::stream).collect(Collectors.toSet()));
+        return peptides.parallelStream().map(x -> x.getModifications().values().parallelStream().map(Modification::getDescription).collect(Collectors.toList())).flatMap(List::stream).distinct().collect(Collectors.toList());
     }
-
-    /**
-     * This method index all the highQualityPeptides that identified a protein into the mongoDB
-     *  @param protein  Identified Protein
-     * @param peptides Collection of identified highQualityPeptides in the experiment
-     * @return
-     */
-//    private boolean indexPeptideByProtein(ReportProtein protein, List<ReportPeptide> peptides,
-//                                          Map<String, List<PeptideSpectrumOverview>> peptideUsi,
-//                                          Set<CvParam> validationMethods,
-//                                          BufferedWriter peptideEvidenceBufferedWriter,
-//                                          String assayAccession, boolean isValid,
-//                                          String projectAccession, Set<Double> peptidesQValues,
-//                                          Set<Double> peptideFDRs) {
-//
-//        AtomicBoolean indexPeptides = new AtomicBoolean(false);
-//
-//
-//         protein.getPeptides().forEach( originalPeptide -> {
-//             Optional<ReportPeptide> peptideOption = peptides.stream()
-//                     .filter(x -> x.getStringID()
-//                             .equalsIgnoreCase(originalPeptide.getStringID()))
-//                     .findAny();
-//
-//             if(peptideOption.isPresent() && peptideUsi.containsKey(peptideOption.get().getStringID())){
-//                 ReportPeptide peptide = peptideOption.get();
-//
-//                 Param bestSearchEngine = null;
-//                 Set<Param> scores = new HashSet<>();
-//                 if (!Double.isInfinite(peptide.getQValue()) && !Double.isNaN(peptide.getQValue())) {
-//                     Double value = SubmissionPipelineUtils.getQValueLower(peptide.getQValue(), peptidesQValues);
-//                     Param peptideScore = new Param(CvTermReference.MS_PIA_PEPTIDE_QVALUE.getName(), String.valueOf(value));
-//                     scores.add(peptideScore);
-//                     bestSearchEngine = peptideScore;
-//                 }
-//
-//
-//                 if (!Double.isInfinite(peptide.getScore("peptide_fdr_score"))
-//                         && !Double.isNaN(peptide.getScore("peptide_fdr_score"))) {
-//
-//                     Double value = peptide.getScore("peptide_fdr_score");
-//                     value = SubmissionPipelineUtils.getQValueLower(value, peptideFDRs);
-//
-//                     Param peptideScore = new Param(CvTermReference.MS_PIA_PEPTIDE_FDR.getName(), String.valueOf(value));
-//                     scores.add(peptideScore);
-//                 }
-//
-//                 Set<PeptideSpectrumOverview> usiList = null;
-//                 if (peptide.getStringID() != null && peptideUsi.containsKey(peptide.getStringID()))
-//                     usiList = new HashSet<>(peptideUsi.get(peptide.getStringID()));
-//
-//                 int startPosition = 0;
-//                 int endPosition = 0;
-//
-//                 Optional<AccessionOccurrence> occurrence = peptide.getPeptide()
-//                         .getAccessionOccurrences()
-//                         .stream()
-//                         .filter(x -> x.getAccession()
-//                                 .getAccession()
-//                                 .equalsIgnoreCase(protein.getRepresentative().getAccession()))
-//                         .findFirst();
-//                 if (occurrence.isPresent()) {
-//                     startPosition = occurrence.get().getStart();
-//                     endPosition = occurrence.get().getEnd();
-//                 } else {
-//                     log.info("Position of the corresponding peptide is not present -- " + protein.getRepresentative().getAccession());
-//                 }
-//
-//                 AtomicReference<CvParam> param = new AtomicReference<>(new CvParam(PRIDETools.PrideOntologyConstants
-//                         .PRIDE_SUBMITTERS_THERSHOLD.getCvLabel(),
-//                         PRIDETools.PrideOntologyConstants.PRIDE_SUBMITTERS_THERSHOLD.getAccession(),
-//                         PRIDETools.PrideOntologyConstants.PRIDE_SUBMITTERS_THERSHOLD.getName(), Boolean.toString(false)));
-//
-//                 int misssedCleavages = peptide.getMissedCleavages();
-//                 if (misssedCleavages == -1) {
-//                     misssedCleavages = uk.ac.ebi.pride.utilities.mol.MoleculeUtilities.calcMissedCleavages(peptide.getSequence());
-//                 }
-//
-//                 PrideMongoPeptideEvidence peptideEvidence = PrideMongoPeptideEvidence
-//                         .builder()
-//                         .assayAccession(assayAccession)
-//                         .proteinAccession(protein.getRepresentative().getAccession())
-//                         .isDecoy(peptide.getIsDecoy())
-//                         .peptideAccession(SubmissionPipelineUtils
-//                                 .encodePeptide(peptide.getSequence(), peptide.getModifications()))
-//                         .peptideSequence(peptide.getSequence())
-//                         .projectAccession(projectAccession)
-//                         .psmAccessions(usiList)
-//                         .startPosition(startPosition)
-//                         .endPosition(endPosition)
-//                         .missedCleavages(misssedCleavages)
-//                         .scores(scores)
-//                         .bestSearchEngineScore(bestSearchEngine)
-//                         .ptmList(convertPeptideModifications(peptide.getModifications()))
-//                         .isValid(isValid)
-//                         .psmAccessions(usiList)
-//                         .qualityEstimationMethods(validationMethods.stream()
-//                                 .map(x -> new Param(x.getName(), x.getValue()))
-//                                 .collect(Collectors.toSet()))
-//                         .build();
-//                 log.info(String.format("Peptide %s -- Number of psms %s", peptide.getStringID(), Objects.requireNonNull(usiList).size()));
-//
-//                 try {
-//                     BackupUtil.write(peptideEvidence, peptideEvidenceBufferedWriter);
-//                     indexPeptides.set(true);
-//                 } catch (Exception e) {
-//                     log.error(e.getMessage(), e);
-//                 }
-//             }
-//         });
-//         return indexPeptides.get();
-//    }
 
     /**
      * Convert Peptide Modifications from PIA modeller to PeptideEvidence modifications
@@ -1166,10 +1065,9 @@ public class PrideAnalysisAssayService {
                                 newPTM.addPosition(proteinPosition, probabilities);
                                 ptms.add(newPTM);
                             }
-                        } else {
-//                            modifications.add(mod);
-                            //if position is not set null is reported
-                        }
+                        }  //                            modifications.add(mod);
+                        //if position is not set null is reported
+
                     }
                 });
 

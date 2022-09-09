@@ -29,7 +29,7 @@ public class PrideArchiveWebService {
     @Value("${prideWSPublic}")
     String prideWSPublic;
 
-    private int maxRetries = 5;
+    private final int maxRetries = 5;
 
     /**
      * Find the {@link PrideProject} for a specific project accession

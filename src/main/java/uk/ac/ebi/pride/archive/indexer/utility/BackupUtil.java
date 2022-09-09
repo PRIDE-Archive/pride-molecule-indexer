@@ -3,9 +3,9 @@ package uk.ac.ebi.pride.archive.indexer.utility;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.module.paranamer.ParanamerModule;
-import uk.ac.ebi.pride.archive.indexer.services.proteomics.model.ArchiveSpectrum;
-import uk.ac.ebi.pride.archive.indexer.services.proteomics.model.PrideProteinEvidence;
-import uk.ac.ebi.pride.archive.indexer.services.proteomics.model.PridePsmSummaryEvidence;
+import uk.ac.ebi.pride.archive.dataprovider.data.spectra.ArchiveSpectrum;
+import uk.ac.ebi.pride.archive.dataprovider.data.protein.ArchiveProteinEvidence;
+import uk.ac.ebi.pride.archive.dataprovider.data.spectra.SummaryArchiveSpectrum;
 
 import java.io.*;
 import java.nio.file.Path;
@@ -33,7 +33,7 @@ public class BackupUtil {
             backupPath = backupPath + File.separator;
         }
         return backupPath + projectAccession + File.separator + projectAccession + "_" + assayAccession +
-                "_" + PrideProteinEvidence.class.getSimpleName() + JSON_EXT;
+                "_" + ArchiveProteinEvidence.class.getSimpleName() + JSON_EXT;
     }
 
     public static String getArchiveSpectrumFile(String backupPath, String projectAccession, String assayAccession) {
@@ -49,30 +49,30 @@ public class BackupUtil {
             backupPath = backupPath + File.separator;
         }
         return backupPath + projectAccession + File.separator + projectAccession + "_" + assayAccession +
-                "_" + PridePsmSummaryEvidence.class.getSimpleName() + JSON_EXT;
+                "_" + SummaryArchiveSpectrum.class.getSimpleName() + JSON_EXT;
     }
 
-    public static List<PrideProteinEvidence> getProteinEvidenceFromBackup(String backupPath, String projectAccession, String assayAccession) throws IOException {
-        List<PrideProteinEvidence> prideProteinEvidences = new ArrayList<>();
+    public static List<ArchiveProteinEvidence> getProteinEvidenceFromBackup(String backupPath, String projectAccession, String assayAccession) throws IOException {
+        List<ArchiveProteinEvidence> archiveProteinEvidences = new ArrayList<>();
         BufferedReader reader;
         reader = new BufferedReader(new FileReader(getProteinEvidenceFile(backupPath, projectAccession, assayAccession)));
         String line = reader.readLine();
         while (line != null) {
-            prideProteinEvidences.add(objectMapper.readValue(line, PrideProteinEvidence.class));
+            archiveProteinEvidences.add(objectMapper.readValue(line, ArchiveProteinEvidence.class));
             line = reader.readLine();
         }
         reader.close();
 
-        return prideProteinEvidences;
+        return archiveProteinEvidences;
     }
 
-    public static List<PridePsmSummaryEvidence> getPsmSummaryEvidenceFromBackup(String backupPath, String projectAccession, String assayAccession) throws IOException {
-        List<PridePsmSummaryEvidence> list = new ArrayList<>();
+    public static List<SummaryArchiveSpectrum> getPsmSummaryEvidenceFromBackup(String backupPath, String projectAccession, String assayAccession) throws IOException {
+        List<SummaryArchiveSpectrum> list = new ArrayList<>();
         BufferedReader reader;
         reader = new BufferedReader(new FileReader(getPsmSummaryEvidenceFile(backupPath, projectAccession, assayAccession)));
         String line = reader.readLine();
         while (line != null) {
-            list.add(objectMapper.readValue(line, PridePsmSummaryEvidence.class));
+            list.add(objectMapper.readValue(line, SummaryArchiveSpectrum.class));
             line = reader.readLine();
         }
         reader.close();

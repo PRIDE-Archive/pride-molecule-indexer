@@ -13,8 +13,8 @@ import java.io.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
@@ -213,7 +213,9 @@ public class SubmissionPipelineUtils {
 //            return psm.getSourceID().replaceAll("mzMLid=", "");
 //        } else if (fileIdFormat == SpecIdFormat.SCAN_NUMBER_NATIVE_ID) {
 //            return psm.getSourceID().replaceAll("scan=", "");
-        } else if (fileIdFormat == SpecIdFormat.SPECTRUM_NATIVE_ID || fileIdFormat == SpecIdFormat.MZML_ID) {
+        } else if(fileIdFormat == SpecIdFormat.SPECTRUM_NATIVE_ID && isValidWiffId(psm.getSourceID())){
+            return new Triple<>(spectraData.getFirst(), psm.getSourceID(), spectraData.getThird());
+        }else if (fileIdFormat == SpecIdFormat.SPECTRUM_NATIVE_ID || fileIdFormat == SpecIdFormat.MZML_ID) {
             String[] partsScan = psm.getSourceID().split(" ");
             Optional<String> scanOptional = Arrays.stream(partsScan).filter(x -> x.contains("scan=")).findFirst();
             String id = scanOptional.map(s -> s.replaceAll("scan=", "")).orElseGet(psm::getSourceID);
@@ -221,6 +223,10 @@ public class SubmissionPipelineUtils {
         } else {
             return new Triple<>(spectraData.getFirst(), psm.getSourceID(),spectraData.getThird());
         }
+    }
+
+    public static boolean isValidWiffId(String id){
+        return (id.contains("sample") && id.contains("period") && id.contains("cycle") && id.contains("experiment"));
     }
 
     public static String getSpectraUsiFromUsi(String usi){
@@ -251,12 +257,23 @@ public class SubmissionPipelineUtils {
      * @param projectAccession project
      * @param fileName         filename with the spectra
      * @param psm              PSM
+     * @param validWiffId
      * @return
      */
-    public static String buildUsi(String projectAccession, String fileName, ReportPSM psm, String id, FileType scan) {
+    public static String buildUsi(String projectAccession, String fileName, ReportPSM psm, String id, FileType scan, boolean validWiffId) {
         Constants.ScanType scanType = Constants.ScanType.INDEX;
-        if(scan == FileType.MZML)
+        if(scan == FileType.MZML && !validWiffId)
             scanType = Constants.ScanType.SCAN;
+        if(scan == FileType.MZML && validWiffId){
+            scanType = Constants.ScanType.NATIVE_ID;
+            StringBuilder idNative = new StringBuilder();
+            for(String x: id.split(" ")){
+                String value = x.split("=")[1];
+                idNative.append(",").append(value);
+            }
+            id = idNative.substring(1, idNative.length());
+
+        }
         return Constants.SPECTRUM_S3_HEADER + projectAccession + ":" + fileName + ":" + scanType.getName() + ":" + id + ":" + encodePSM(psm.getSequence(), psm.getModifications(), psm.getCharge());
     }
 
@@ -339,7 +356,7 @@ public class SubmissionPipelineUtils {
         String sourcePath = String.join("/", productionPath, "submitted", compressFile);
         String targetPath = String.join("/", productionPath,  "internal", uncompresFile);
         try (GZIPInputStream gis = new GZIPInputStream(
-                new FileInputStream(sourcePath))) {
+                Files.newInputStream(Paths.get(sourcePath)))) {
             Files.copy(gis, new File(targetPath).toPath());
         } catch (IOException e) {
             e.printStackTrace();
@@ -356,27 +373,18 @@ public class SubmissionPipelineUtils {
 
         File file = new File(fileName);
         boolean valid = false;
-            BufferedReader reader = null;
-            try {
-                reader = new BufferedReader(new FileReader(file));
-                // read the first ten lines
-                StringBuilder content = new StringBuilder();
-                for (int i = 0; i < 20; i++) {
-                    content.append(reader.readLine());
-                }
-                // check file type
-                return content.toString().toLowerCase().contains("mzidentml");
-            } catch (Exception e) {
-                log.error("Failed to read file", e);
-            } finally {
-                if (reader != null) {
-                    try {
-                        reader.close();
-                    } catch (IOException e) {
-                        // do nothing here
-                    }
-                }
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            // read the first ten lines
+            StringBuilder content = new StringBuilder();
+            for (int i = 0; i < 20; i++) {
+                content.append(reader.readLine());
             }
-            return valid;
+            // check file type
+            return content.toString().toLowerCase().contains("mzidentml");
+        } catch (Exception e) {
+            log.error("Failed to read file", e);
+        }
+        // do nothing here
+        return valid;
         }
 }

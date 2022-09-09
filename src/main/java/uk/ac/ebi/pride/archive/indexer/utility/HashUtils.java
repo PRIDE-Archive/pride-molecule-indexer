@@ -4,8 +4,8 @@ import lombok.extern.slf4j.Slf4j;
 
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import javax.xml.bind.DatatypeConverter;
@@ -38,7 +38,7 @@ public class HashUtils {
     public static String calculateSha1Checksum(String filepath) throws IOException {
         byte[] bytesRead = new byte[BUFFER_SIZE];
         final MessageDigest inputStreamMessageDigest = getSha1();
-        final DigestInputStream digestInputStream = new DigestInputStream(new FileInputStream(new File(filepath)), inputStreamMessageDigest);
+        final DigestInputStream digestInputStream = new DigestInputStream(Files.newInputStream(new File(filepath).toPath()), inputStreamMessageDigest);
         while (digestInputStream.read(bytesRead) != -1) ;
         return normalize(inputStreamMessageDigest);
     }
