@@ -224,7 +224,9 @@ public class PrideAnalysisAssayService {
 
     }
 
-    public void writeAnalysisOutputFromResultFiles(String projectAccession, List<String> resultFiles, HashSet<String> spectraFiles, Set<String> sampleFiles, String folderOutput, String reanalysisAccession) throws IOException {
+    public void writeAnalysisOutputFromResultFiles(String projectAccession, List<String> resultFiles, HashSet<String> spectraFiles,
+                                                   Set<String> sampleFiles, String folderOutput,
+                                                   String reanalysisAccession) throws IOException {
 
         Optional<PrideProject> projectOption = prideArchiveWebService.findByAccession(projectAccession);
         List<PrideFile> projectFiles = new ArrayList<>();
@@ -1094,5 +1096,13 @@ public class PrideAnalysisAssayService {
         } catch (IOException e) {
           throw new RuntimeException(e);
         }
+    }
+
+    public void setMinPSMs(int minPSMs) {
+        this.minPSMs = minPSMs;
+    }
+
+    public void setQValueThreshold(double qValueThreshold) {
+        this.qValueThreshold = qValueThreshold;
     }
 }

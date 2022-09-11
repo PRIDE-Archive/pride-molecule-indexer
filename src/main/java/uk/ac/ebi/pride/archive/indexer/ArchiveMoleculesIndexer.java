@@ -90,6 +90,27 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
             analysisAssayService.writeRelatedSpectraFiles(projectAccession, resultFileOptions, fileOutput);
         }
         else if(Objects.equals(command, "generate-index-files")){
+
+            List<String> minPSMsOption = args.getOptionValues("app.minPSMs");
+            try{
+                if(minPSMsOption != null && minPSMsOption.size() > 0) {
+                    int minPSMs = Integer.parseInt(minPSMsOption.get(0));
+                    analysisAssayService.setMinPSMs(minPSMs);
+                }
+            }catch (NumberFormatException e){
+                throw new Exception("The minimum number of PSMs parameter must be an integer number, example: --app.minPMS=300");
+            }
+
+            List<String> qValueThresholdOption = args.getOptionValues("app.qValueThreshold");
+            try{
+                if(qValueThresholdOption != null && qValueThresholdOption.size() > 0) {
+                    double qValueThreshold = Double.parseDouble(qValueThresholdOption.get(0));
+                    analysisAssayService.setQValueThreshold(qValueThreshold);
+                }
+            }catch (NumberFormatException e){
+                throw new Exception("The minimum number of PSMs parameter must be an double number, example: --app.qValueThreshold=0.05");
+            }
+
             List<String> projectAccessionOptions = args.getOptionValues("app.project-accession");
             if(projectAccessionOptions.size() != 1){
                 throw new Exception("Project accession should be provided for command " +
