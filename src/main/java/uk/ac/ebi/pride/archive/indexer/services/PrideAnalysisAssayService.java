@@ -665,7 +665,7 @@ public class PrideAnalysisAssayService {
                         if(psm.getSpectrum().getSourceID().contains("1223"))
                             log.info("");
 
-                        PSMProvider archivePSM = ArchiveSpectrum
+                        ArchiveSpectrum archivePSM = ArchiveSpectrum
                                 .builder()
                                 .projectAccession(projectAccession)
                                 .reanalysisAccession(reanalysisAccession)
@@ -673,6 +673,8 @@ public class PrideAnalysisAssayService {
                                 .spectrumTitle(psm.getSpectrumTitle())
                                 .assayAccession(fileAccession)
                                 .peptideSequence(psm.getSequence())
+                                .modifiedPeptideSequence(SubmissionPipelineUtils
+                                        .encodePeptide(psm.getSequence(), psm.getModifications()))
                                 .peptidoform(SubmissionPipelineUtils.encodePSM(psm.getSequence(), psm.getModifications(), psm.getCharge()))
                                 .isDecoy(psm.getIsDecoy())
                                 .retentionTime(retentionTime)
