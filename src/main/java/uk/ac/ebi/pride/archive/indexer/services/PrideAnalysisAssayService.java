@@ -78,15 +78,20 @@ public class PrideAnalysisAssayService {
     @Value("${qValueThreshold:#{0.01}}")
     private Double qValueThreshold;
 
-    @Value("${qFilterProteinFDR:#{1.0}}")
+    @Value("${qFilterProteinFDR:#{0.01}}")
     private Double qFilterProteinFDR;
+
+    @Value("${peptideLength:#{7}}")
+    private Double peptideLength;
 
     @Value("${minPSMs:#{1000}}")
     private int minPSMs;
 
+    @Value("${uniquePeptides:#{0}}")
+    private int uniquePeptides;
+
     final DecimalFormat df = new DecimalFormat("###.#####");
 
-    static OboMapper psiOboMapper = OboMapper.getPSIOboMapper(true);
     static final OboMapper efoOboMapper = OboMapper.getEFOOboMapper(false);
 
     @Bean
@@ -431,14 +436,17 @@ public class PrideAnalysisAssayService {
         filters.add(RegisteredFilters.PSM_SOURCE_ID_FILTER
                 .newInstanceOf(FilterComparator.equal, "index=null", true));
 
+        filters.add(RegisteredFilters.PROTEIN_Q_VALUE_FILTER.newInstanceOf(FilterComparator.less_equal, 0.01, false));
+
         // Remove peptides less than 7 AAs
-        filters.add(RegisteredFilters.PEPTIDE_SEQUENCE_LENGTH.newInstanceOf(FilterComparator.greater_equal, 7, false));
+        filters.add(RegisteredFilters.PEPTIDE_SEQUENCE_LENGTH.newInstanceOf(FilterComparator.greater_equal, peptideLength, false));
         filters.add(RegisteredFilters.PSM_MODIFICATIONS_FILTER.newInstanceOf(FilterComparator.has_residue_modification, "A##UNIMOD:21", true));
 
         // Remove evidences at 1% FDR
         filters.add(new PSMScoreFilter(FilterComparator.less_equal, false,
-                qValueThreshold, ScoreModelEnum.PSM_LEVEL_Q_VALUE.getShortName()));              // you can also use fdr score here
+                qValueThreshold, ScoreModelEnum.PSM_LEVEL_Q_VALUE.getShortName()));
 
+        filters.add(RegisteredFilters.NR_UNIQUE_PEPTIDES_PER_PROTEIN_FILTER.newInstanceOf(FilterComparator.greater_equal, uniquePeptides, false));
         // get the FDR filtered highQualityPeptides
         List<ReportPSM> psms = modeller.getPSMModeller().getAllFilteredReportPSMs(filters);
 
@@ -1106,5 +1114,17 @@ public class PrideAnalysisAssayService {
 
     public void setQValueThreshold(double qValueThreshold) {
         this.qValueThreshold = qValueThreshold;
+    }
+
+    public void setqFilterProteinFDR(Double qFilterProteinFDR) {
+        this.qFilterProteinFDR = qFilterProteinFDR;
+    }
+
+    public void setPeptideLength(Double peptideLength) {
+        this.peptideLength = peptideLength;
+    }
+
+    public void setUniquePeptides(int uniquePeptides) {
+        this.uniquePeptides = uniquePeptides;
     }
 }

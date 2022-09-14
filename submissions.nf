@@ -203,7 +203,7 @@ process generate_json_index_files{
   script:
   java_mem = "-Xmx" + task.memory.toGiga() + "G"
   """
-  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar generate-index-files --app.result-file="${result_id[1]}" --app.folder-output=`pwd` --app.spectra-files="${result_id[2].join(",")}" --app.project-accession=${params.project_accession} --app.minPSMs=${params.minPSMs} --app.qValueThreshold=${params.qValueThreshold}
+  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar generate-index-files --app.result-file="${result_id[1]}" --app.folder-output=`pwd` --app.spectra-files="${result_id[2].join(",")}" --app.project-accession=${params.project_accession} --app.minPSMs=${params.minPSMs} --app.qValueThreshold=${params.qValueThreshold} --app.qFilterProteinFDR=${params.qFilterProteinFDR} --app.peptideLength=${params.peptideLength} --app.uniquePeptides=${params.uniquePeptides}
   """
 }
 

@@ -101,14 +101,44 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
                 throw new Exception("The minimum number of PSMs parameter must be an integer number, example: --app.minPMS=300");
             }
 
-            List<String> qValueThresholdOption = args.getOptionValues("app.qValueThreshold");
+            List<String> valueOption = args.getOptionValues("app.qValueThreshold");
             try{
-                if(qValueThresholdOption != null && qValueThresholdOption.size() > 0) {
-                    double qValueThreshold = Double.parseDouble(qValueThresholdOption.get(0));
+                if(valueOption != null && valueOption.size() > 0) {
+                    double qValueThreshold = Double.parseDouble(valueOption.get(0));
                     analysisAssayService.setQValueThreshold(qValueThreshold);
                 }
             }catch (NumberFormatException e){
-                throw new Exception("The minimum number of PSMs parameter must be an double number, example: --app.qValueThreshold=0.05");
+                throw new Exception("The PSM FDR q-value Threshold (default: 0.01): --app.qValueThreshold=0.05");
+            }
+
+            valueOption = args.getOptionValues("app.qFilterProteinFDR");
+            try{
+                if(valueOption != null && valueOption.size() > 0) {
+                    double qValueThreshold = Double.parseDouble(valueOption.get(0));
+                    analysisAssayService.setqFilterProteinFDR(qValueThreshold);
+                }
+            }catch (NumberFormatException e){
+                throw new Exception("The Protein FDR q-value Threshold (default: 0.01): --app.qFilterProteinFDR=0.05");
+            }
+
+            valueOption = args.getOptionValues("app.peptideLength");
+            try{
+                if(valueOption != null && valueOption.size() > 0) {
+                    double qValueThreshold = Double.parseDouble(valueOption.get(0));
+                    analysisAssayService.setPeptideLength(qValueThreshold);
+                }
+            }catch (NumberFormatException e){
+                throw new Exception("The peptide length threshold (default: 7): --app.peptideLength=7");
+            }
+
+            valueOption = args.getOptionValues("app.uniquePeptides");
+            try{
+                if(valueOption != null && valueOption.size() > 0) {
+                    double qValueThreshold = Double.parseDouble(valueOption.get(0));
+                    analysisAssayService.setPeptideLength(qValueThreshold);
+                }
+            }catch (NumberFormatException e){
+                throw new Exception("The number of unique peptides per protein: --app.uniquePeptides=0");
             }
 
             List<String> projectAccessionOptions = args.getOptionValues("app.project-accession");
