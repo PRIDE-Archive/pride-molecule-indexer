@@ -9,8 +9,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.ComponentScan;
+import uk.ac.ebi.pride.archive.indexer.services.PIAAnalysisService;
 import uk.ac.ebi.pride.archive.indexer.services.PrideAnalysisAssayService;
 import uk.ac.ebi.pride.archive.indexer.services.ws.PrideArchiveWebService;
+import uk.ac.ebi.pride.archive.indexer.utility.SubmissionPipelineUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,7 +27,7 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
     @Value("${batchCommit}")
     private int batchComit = 1;
 
-    private final String[] options = {"get-result-files", "get-related-files", "generate-index-files"};
+    private final String[] options = {"get-result-files", "get-related-files", "generate-index-files", "perform-inference"};
 
     @Autowired
     private ConfigurableApplicationContext context;
@@ -35,6 +37,9 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
 
     @Autowired
     PrideAnalysisAssayService analysisAssayService;
+
+    @Autowired
+    PIAAnalysisService inferenceAnalysisService;
 
     /**
      * usage outputDirectory filterFile directoryToProcess
@@ -190,6 +195,50 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
             }catch (IOException e){
                 log.error("Project --- " + projectAccession + "can't be analyzed due the following error --- " + e.getMessage());
             }
+        }
+        else if(Objects.equals(command, "perform-inference")){
+
+            List<String> valueOption = args.getOptionValues("app.qValueThreshold");
+            try{
+                if(valueOption != null && valueOption.size() > 0) {
+                    double qValueThreshold = Double.parseDouble(valueOption.get(0));
+                    inferenceAnalysisService.setqValueThreshold(qValueThreshold);
+                }
+            }catch (NumberFormatException e){
+                throw new Exception("The PSM FDR q-value Threshold (default: 0.01): --app.qValueThreshold=0.05");
+            }
+
+            valueOption = args.getOptionValues("app.qFilterProteinFDR");
+            try{
+                if(valueOption != null && valueOption.size() > 0) {
+                    double qValueThreshold = Double.parseDouble(valueOption.get(0));
+                    inferenceAnalysisService.setqFilterProteinFDR(qValueThreshold);
+                }
+            }catch (NumberFormatException e){
+                throw new Exception("The Protein FDR q-value Threshold (default: 0.01): --app.qFilterProteinFDR=0.05");
+            }
+
+            List<String> idFiles = args.getOptionValues("app.result-file");
+            if(idFiles == null)
+                idFiles = new ArrayList<>();
+            else
+                idFiles = idFiles
+                        .stream()
+                        .flatMap( x-> Arrays.stream(x.split(",")))
+                        .map(this::cleanFileName)
+                        .filter(x -> (new File(x)).exists())
+                        .collect(Collectors.toList());
+
+            List<String> resultFileOptions = args.getOptionValues("app.mzid-file");
+            if(resultFileOptions.size() != 1){
+                throw new Exception("Output File must be provided for inference " +
+                        "perform-inference with parameter --app.mzid-file");
+            }
+            String outpuFile = resultFileOptions.stream()
+                    .map(this::cleanFileName).findAny().get();
+
+            inferenceAnalysisService.performProteinInference(idFiles, SubmissionPipelineUtils.FileType.MZID, outpuFile);
+
         }
 
         args.getOptionNames().forEach(optionName -> System.out.println(optionName + "=" + args.getOptionValues(optionName)));

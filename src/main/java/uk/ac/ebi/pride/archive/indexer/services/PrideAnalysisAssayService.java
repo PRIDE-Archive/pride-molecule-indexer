@@ -25,7 +25,6 @@ import org.springframework.stereotype.Service;
 import uk.ac.ebi.jmzidml.model.mzidml.AbstractParam;
 import uk.ac.ebi.jmzidml.model.mzidml.SpectraData;
 import uk.ac.ebi.pride.archive.dataprovider.common.Tuple;
-import uk.ac.ebi.pride.archive.dataprovider.data.peptide.PSMProvider;
 import uk.ac.ebi.pride.archive.dataprovider.data.protein.PeptideSpectrumOverview;
 import uk.ac.ebi.pride.archive.dataprovider.data.ptm.IdentifiedModification;
 import uk.ac.ebi.pride.archive.dataprovider.data.ptm.IdentifiedModificationProvider;
@@ -90,9 +89,14 @@ public class PrideAnalysisAssayService {
     @Value("${uniquePeptides:#{0}}")
     private int uniquePeptides;
 
+    @Value("${batch:#{20000}}")
+    private int numInbatch;
+
     final DecimalFormat df = new DecimalFormat("###.#####");
 
     static final OboMapper efoOboMapper = OboMapper.getEFOOboMapper(false);
+
+    static final Map<String, BufferedWriter> spectraPartitionWriters = new HashMap<>();
 
     @Bean
     PIAModelerService getPIAModellerService() {
@@ -199,29 +203,32 @@ public class PrideAnalysisAssayService {
 
     /**
      * Create Backup folders for a specific resultFile and assay.
-     * @param fileAccession file accession, hash
      * @param assayObjects AssayObjects to store the protein/peptide/psms information
      * @param folderOutput Root folder containing all the backup files
      * @param projectAccession Project assay
      * @return Object Map updated with the {@link BufferedWriter}s for each object
      * @throws IOException
      */
-    private Map<String, Object> createBackupFiles(String fileAccession, Map<String, Object> assayObjects, String folderOutput, String projectAccession) throws IOException {
+    private Map<String, Object> createBackupFiles(Map<String, Object> assayObjects, String folderOutput, String projectAccession) throws IOException {
 
         // Create first the root folder for the project
         createBackupDir(folderOutput, projectAccession);
 
-        log.info("Creating assay file  -- " + fileAccession);
+        log.info("Creating assay file  -- " + projectAccession);
 
-        final String proteinEvidenceFileName = BackupUtil.getProteinEvidenceFile(folderOutput, projectAccession, fileAccession);
+
+        final String proteinEvidenceFileName = BackupUtil.getProteinEvidenceFile(folderOutput, projectAccession);
         assayObjects.put("proteinEvidenceFileName", proteinEvidenceFileName);
         assayObjects.put("proteinEvidenceBufferedWriter", new BufferedWriter(new FileWriter(proteinEvidenceFileName, false)));
 
-        final String archiveSpectrumFileName = BackupUtil.getArchiveSpectrumFile(folderOutput, projectAccession, fileAccession);
+        final String archiveSpectrumFileName = BackupUtil.getArchiveSpectrumFile(folderOutput, projectAccession);
         assayObjects.put("archiveSpectrumFileName", archiveSpectrumFileName);
         assayObjects.put("archiveSpectrumBufferedWriter", new BufferedWriter(new FileWriter(archiveSpectrumFileName, false)));
 
-        final String psmSummaryEvidenceFileName = BackupUtil.getPsmSummaryEvidenceFile(folderOutput, projectAccession, fileAccession);
+        final String archiveSpectrumFilePrefix = BackupUtil.getArchiveSpectrumFilePrefix(folderOutput, projectAccession);
+        assayObjects.put("archiveSpectrumFilePrefix", archiveSpectrumFilePrefix);
+
+        final String psmSummaryEvidenceFileName = BackupUtil.getPsmSummaryEvidenceFile(folderOutput, projectAccession);
         assayObjects.put("psmSummaryEvidenceFileName", psmSummaryEvidenceFileName);
         assayObjects.put("psmSummaryEvidenceBufferedWriter", new BufferedWriter(new FileWriter(psmSummaryEvidenceFileName, false)));
 
@@ -270,7 +277,7 @@ public class PrideAnalysisAssayService {
                     if(fileAccession != null){
                         String folderAccession = reanalysisAccession != null?reanalysisAccession:projectAccession;
                         assayObjectMap = analyzeAssayInformationStep(resultFile, fileAccession, fileType);
-                        createBackupFiles(fileAccession, assayObjectMap, folderOutput, folderAccession);
+                        createBackupFiles(assayObjectMap, folderOutput, folderAccession);
 
                         indexSpectraStep(projectAccession, fileAccession, assayObjectMap, spectraFiles, reanalysisAccession);
                         proteinIndexStep(fileAccession, assayObjectMap, projectAccession, reanalysisAccession);
@@ -503,6 +510,7 @@ public class PrideAnalysisAssayService {
             Map<String, List<PeptideSpectrumOverview>> proteinToPsms = new HashMap<>();
             List<Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> finalRelatedFiles = relatedFiles;
             psms.forEach(psm -> {
+                BufferedWriter batchBufferWriter = null;
                 try {
                     PeptideSpectrumMatch spectrum = null;
                     if (psm != null) spectrum = psm.getSpectrum();
@@ -584,7 +592,7 @@ public class PrideAnalysisAssayService {
                             if (abstractParam != null) {
                                 if (abstractParam instanceof uk.ac.ebi.jmzidml.model.mzidml.CvParam) {
                                     uk.ac.ebi.jmzidml.model.mzidml.CvParam cvParam = (uk.ac.ebi.jmzidml.model.mzidml.CvParam) abstractParam;
-                                    if (cvParam.getAccession() != null)
+                                    if (cvParam.getAccession() != null && !Objects.equals(cvParam.getAccession(), "MS:1002362") && !Objects.equals(cvParam.getAccession(), "MS:1000894"))
                                         properties.add(new Param(cvParam.getAccession(), cvParam.getName(), cvParam.getValue()));
                                 }
                             }
@@ -677,12 +685,8 @@ public class PrideAnalysisAssayService {
                                 .builder()
                                 .projectAccession(projectAccession)
                                 .reanalysisAccession(reanalysisAccession)
-                                .sourceID(psm.getSourceID())
-                                .spectrumTitle(psm.getSpectrumTitle())
                                 .assayAccession(fileAccession)
                                 .peptideSequence(psm.getSequence())
-                                .modifiedPeptideSequence(SubmissionPipelineUtils
-                                        .encodePeptide(psm.getSequence(), psm.getModifications()))
                                 .peptidoform(SubmissionPipelineUtils.encodePSM(psm.getSequence(), psm.getModifications(), psm.getCharge()))
                                 .isDecoy(psm.getIsDecoy())
                                 .retentionTime(retentionTime)
@@ -691,7 +695,6 @@ public class PrideAnalysisAssayService {
                                 .masses(masses)
                                 .numPeaks(intensities.length)
                                 .intensities(intensities)
-                                .spectrumFile(fileName)
                                 .modifications(mods)
                                 .precursorMz(fileSpectrum.getPrecursorMZ())
                                 .usi(usi)
@@ -719,27 +722,38 @@ public class PrideAnalysisAssayService {
                                 .isValid(isValid)
                                 .projectAccession(projectAccession)
                                 .reanalysisAccession(reanalysisAccession)
-                                .spectrumFile(fileName)
                                 .scores(scores)
                                 .numPeaks(intensities.length)
                                 .bestSearchEngineScore(bestSearchEngineScore)
                                 .precursorMz(psm.getMassToCharge())
                                 .proteinAccessions(psm.getAccessions().stream().map(Accession::getAccession).collect(Collectors.toList()))
-                                .modifiedPeptideSequence(SubmissionPipelineUtils
-                                        .encodePeptide(psm.getSequence(), psm.getModifications()))
                                 .peptidoform(SubmissionPipelineUtils.encodePSM(psm.getSequence(), psm.getModifications(), psm.getCharge()))
                                 .sampleProperties(localSampleProperties)
                                 .build();
 
                         try {
+
+                            // Total number of spectrum in ArchiveSpectrum
                             BackupUtil.write(archivePSM, (BufferedWriter) assayObjects.get("archiveSpectrumBufferedWriter"));
+                            // Total number of spectrum in Elastic Search summary.
                             BackupUtil.write(psmElastic, (BufferedWriter) assayObjects.get("psmSummaryEvidenceBufferedWriter"));
+                            // Writing in batches.
+
+                            String batchFile = usi.split(":")[2];
+                            if(!spectraPartitionWriters.containsKey(batchFile)){
+                                String prefix = (String) assayObjects.get("archiveSpectrumFilePrefix");
+                                batchBufferWriter = new BufferedWriter(new FileWriter(BackupUtil.getArchiveSpectrumFileBatch(prefix, batchFile), false));
+                                spectraPartitionWriters.put(batchFile, batchBufferWriter);
+                            }else
+                                batchBufferWriter = spectraPartitionWriters.get(batchFile);
+
+                            BackupUtil.write(archivePSM, batchBufferWriter);
+
                         } catch (Exception ex) {
                             log.debug("Error writing the PSMs in the files -- " + psmElastic.getUsi());
                         }
-
+                        // construction of USI list.
                         PeptideSpectrumOverview psmOverview = new PeptideSpectrumOverview(psm.getCharge(), psm.getMassToCharge(), usi,psm.getSequence(),SubmissionPipelineUtils.encodePeptide(psm.getSequence(), psm.getModifications()));
-
                         psm.getAccessions().forEach( x -> {
                             // For some reason for protein accessions for PSMs are not in any of the protein reported proteins.
                             if (findProteinInReports(proteins, x.getAccession()).isPresent()){
@@ -764,6 +778,15 @@ public class PrideAnalysisAssayService {
             });
             assayObjects.put("proteinToPsms", proteinToPsms);
 
+            spectraPartitionWriters.values().forEach(x -> {
+                try {
+                    x.flush();
+                    x.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+
             log.info("Delta Mass Rate -- " + (errorDeltaPSM.get() / totalPSM.get()));
             log.info(String.valueOf(System.currentTimeMillis() - initSpectraStep));
         }
@@ -779,6 +802,8 @@ public class PrideAnalysisAssayService {
     private List<uk.ac.ebi.pride.utilities.util.Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> getRelatedFiles(List<SpectraData> spectraDataFiles, Set<String> spectraFiles) throws IOException {
 
         if(Objects.isNull(spectraDataFiles) || Objects.isNull(spectraFiles) || spectraDataFiles.size() == 0 || spectraFiles.size() == 0){
+            System.out.println(spectraFiles);
+            System.out.println(spectraDataFiles.stream().map(SpectraData::getLocation).collect(Collectors.toList()));
             throw new IOException("The number of files provided and SpectraData referenced in the result files are different");
         }
 

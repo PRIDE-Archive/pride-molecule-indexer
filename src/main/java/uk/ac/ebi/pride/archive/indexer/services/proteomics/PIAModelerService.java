@@ -14,12 +14,14 @@ import de.mpc.pia.modeller.report.filter.impl.PSMScoreFilter;
 import de.mpc.pia.modeller.score.FDRData;
 import de.mpc.pia.modeller.score.ScoreModelEnum;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.FilenameUtils;
 import uk.ac.ebi.pride.archive.indexer.utility.SubmissionPipelineUtils;
 
 
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 
 @Slf4j
 public class PIAModelerService {
@@ -40,6 +42,13 @@ public class PIAModelerService {
         PIAModeller piaModeller = computeFDRPSMLevel(assayId, filePath, fileType);
         return performFilteringInference(piaModeller, psmQThreshold, proteinQThreshold);
 
+    }
+
+    public PIAModeller performProteinInference(List<String> filePaths, SubmissionPipelineUtils.FileType fileType,
+                                               double psmQThreshold, double proteinQThreshold) throws IOException {
+
+        PIAModeller piaModeller = computeFDRPSMLevel(filePaths, fileType);
+        return performFilteringInference(piaModeller, psmQThreshold, proteinQThreshold);
 
     }
 
@@ -118,6 +127,36 @@ public class PIAModelerService {
                 && !piaCompiler.getAllPeptideSpectrumMatcheIDs().isEmpty()) {
 
             File inferenceTempFile = File.createTempFile(assayKey, ".tmp");
+            piaCompiler.writeOutXML(inferenceTempFile);
+            piaCompiler.finish();
+            piaModeller = new PIAModeller(inferenceTempFile.getAbsolutePath());
+
+            if (inferenceTempFile.exists()) {
+                inferenceTempFile.deleteOnExit();
+            }
+        }
+        return piaModeller;
+    }
+
+    private PIAModeller computeFDRPSMLevel(List<String> filePath, SubmissionPipelineUtils.FileType fileType) throws IOException {
+
+        PIAModeller piaModeller = null;
+        PIACompiler piaCompiler = new PIASimpleCompiler();
+
+        String type = InputFileParserFactory.InputFileTypes.MZTAB_INPUT.getFileTypeShort();
+        if(fileType == SubmissionPipelineUtils.FileType.MZID)
+            type = InputFileParserFactory.InputFileTypes.MZIDENTML_INPUT.getFileTypeShort();
+
+        String finalType = type;
+        filePath.forEach(x -> piaCompiler.getDataFromFile(FilenameUtils.getName(x), x, null, finalType));
+
+        piaCompiler.buildClusterList();
+        piaCompiler.buildIntermediateStructure();
+
+        if (piaCompiler.getAllPeptideSpectrumMatcheIDs() != null
+                && !piaCompiler.getAllPeptideSpectrumMatcheIDs().isEmpty()) {
+
+            File inferenceTempFile = File.createTempFile("pia_compiler_temp", ".xml");
             piaCompiler.writeOutXML(inferenceTempFile);
             piaCompiler.finish();
             piaModeller = new PIAModeller(inferenceTempFile.getAbsolutePath());
