@@ -54,6 +54,7 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
         if (args.getNonOptionArgs().size() != 1 || !Arrays.asList(options).contains(args.getNonOptionArgs().get(0))){
             throw new Exception("Available commands are: " + Arrays.asList(options));
         }
+        // Get results files command
         String command = args.getNonOptionArgs().get(0);
         if(Objects.equals(command, "get-result-files")){
             List<String> projectAccessionOptions = args.getOptionValues("app.project-accession");
@@ -71,6 +72,8 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
             String fileOutput = fileOutputOptions.get(0);
             prideArchiveWebService.writeResultForProjectAccession(projectAccession, fileOutput);
         }
+
+        // Get the related files to result files
         else if(Objects.equals(command, "get-related-files")){
             List<String> projectAccessionOptions = args.getOptionValues("app.project-accession");
             if(projectAccessionOptions.size() != 1){
@@ -94,6 +97,8 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
             resultFileOptions = resultFileOptions.stream().map(this::cleanFileName).collect(Collectors.toList());
             analysisAssayService.writeRelatedSpectraFiles(projectAccession, resultFileOptions, fileOutput);
         }
+
+        // Generate indexes for experiments
         else if(Objects.equals(command, "generate-index-files")){
 
             List<String> minPSMsOption = args.getOptionValues("app.minPSMs");
@@ -196,6 +201,8 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
                 log.error("Project --- " + projectAccession + "can't be analyzed due the following error --- " + e.getMessage());
             }
         }
+
+        // Perform the protein inference
         else if(Objects.equals(command, "perform-inference")){
 
             List<String> valueOption = args.getOptionValues("app.qValueThreshold");

@@ -592,7 +592,9 @@ public class PrideAnalysisAssayService {
                             if (abstractParam != null) {
                                 if (abstractParam instanceof uk.ac.ebi.jmzidml.model.mzidml.CvParam) {
                                     uk.ac.ebi.jmzidml.model.mzidml.CvParam cvParam = (uk.ac.ebi.jmzidml.model.mzidml.CvParam) abstractParam;
-                                    if (cvParam.getAccession() != null && !Objects.equals(cvParam.getAccession(), "MS:1002362") && !Objects.equals(cvParam.getAccession(), "MS:1000894"))
+                                    if (cvParam.getAccession() != null &&
+                                            !Objects.equals(cvParam.getAccession(), "MS:1002362")
+                                            && !Objects.equals(cvParam.getAccession(), "MS:1000894") && !Objects.equals(cvParam.getAccession(), "PRIDE:0000511"))
                                         properties.add(new Param(cvParam.getAccession(), cvParam.getName(), cvParam.getValue()));
                                 }
                             }
@@ -1114,6 +1116,10 @@ public class PrideAnalysisAssayService {
 
     }
 
+    /**
+     * Delete files when the pipeline fails to produce PSMs, Peptides and Proteins
+     * @param assayObjectMap ObjectMap
+     */
     public void deleteFailingOutputFiles(Map<String, Object> assayObjectMap) {
         try{
             if(assayObjectMap !=null && assayObjectMap.containsKey("proteinEvidenceFileName")){
