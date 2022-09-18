@@ -275,7 +275,7 @@ public class SubmissionPipelineUtils {
 
         }
         fileName = getFileNameNoExtension(fileName);
-        return Constants.SPECTRUM_S3_HEADER + projectAccession + ":" + fileName + ":" + scanType.getName() + ":" + id + ":" + encodePSM(psm.getSequence(), psm.getModifications(), psm.getCharge());
+        return Constants.SPECTRUM_S3_HEADER + projectAccession + ":" + fileName + ":" + scanType.getName() + ":" + id;
     }
 
     public static String encodePSM(String sequence, Map<Integer, Modification> ptms, Integer charge) {

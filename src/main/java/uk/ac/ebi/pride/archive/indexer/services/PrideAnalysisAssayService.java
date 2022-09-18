@@ -28,6 +28,7 @@ import uk.ac.ebi.pride.archive.dataprovider.common.Tuple;
 import uk.ac.ebi.pride.archive.dataprovider.data.protein.PeptideSpectrumOverview;
 import uk.ac.ebi.pride.archive.dataprovider.data.ptm.IdentifiedModification;
 import uk.ac.ebi.pride.archive.dataprovider.data.ptm.IdentifiedModificationProvider;
+import uk.ac.ebi.pride.archive.dataprovider.data.spectra.BinaryArchiveSpectrum;
 import uk.ac.ebi.pride.archive.dataprovider.param.CvParam;
 import uk.ac.ebi.pride.archive.dataprovider.param.CvParamProvider;
 import uk.ac.ebi.pride.archive.dataprovider.data.spectra.ArchiveSpectrum;
@@ -683,7 +684,7 @@ public class PrideAnalysisAssayService {
                         if(psm.getSpectrum().getSourceID().contains("1223"))
                             log.info("");
 
-                        ArchiveSpectrum archivePSM = ArchiveSpectrum
+                        BinaryArchiveSpectrum archivePSM = BinaryArchiveSpectrum
                                 .builder()
                                 .projectAccession(projectAccession)
                                 .reanalysisAccession(reanalysisAccession)
