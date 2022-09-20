@@ -31,7 +31,6 @@ import uk.ac.ebi.pride.archive.dataprovider.data.ptm.IdentifiedModificationProvi
 import uk.ac.ebi.pride.archive.dataprovider.data.spectra.BinaryArchiveSpectrum;
 import uk.ac.ebi.pride.archive.dataprovider.param.CvParam;
 import uk.ac.ebi.pride.archive.dataprovider.param.CvParamProvider;
-import uk.ac.ebi.pride.archive.dataprovider.data.spectra.ArchiveSpectrum;
 import uk.ac.ebi.pride.archive.dataprovider.data.protein.ArchiveProteinEvidence;
 import uk.ac.ebi.pride.archive.dataprovider.data.spectra.SummaryArchiveSpectrum;
 import uk.ac.ebi.pride.archive.dataprovider.param.Param;
@@ -123,7 +122,7 @@ public class PrideAnalysisAssayService {
             throw new IOException("Project not present in the PRIDE WS for accession: " + projectAccession);
         PrideProject project = projectOption.get();
 
-        List<PrideFile> projectFiles = prideArchiveWebService.findFilesByProjectAccession(projectAccession);
+        List<PrideFile> projectFiles = prideArchiveWebService.findFilesByProjectAccession(projectAccession, true);
         if(projectFiles.size() == 0){
             throw new IOException("Not files found in the PRIDE WS for accession: " + projectAccession);
         }
@@ -242,13 +241,6 @@ public class PrideAnalysisAssayService {
                                                    String reanalysisAccession) throws IOException {
 
         Optional<PrideProject> projectOption = prideArchiveWebService.findByAccession(projectAccession);
-        List<PrideFile> projectFiles = new ArrayList<>();
-        if (reanalysisAccession == null) {
-            projectFiles = prideArchiveWebService.findFilesByProjectAccession(projectAccession);
-            if(projectFiles.size() == 0){
-                throw new IOException("Not files found in the PRIDE WS for accession: " + projectAccession);
-            }
-        }
 
         if(!projectOption.isPresent())
             throw new IOException("Project not present in the PRIDE WS for accession: " + projectAccession);
@@ -258,8 +250,6 @@ public class PrideAnalysisAssayService {
                         .filter( x-> SubmissionPipelineUtils.FileType.getFileTypeFromFileName(x) == SubmissionPipelineUtils.FileType.PRIDE)
                         .collect(Collectors.toSet()));
 
-        List<PrideFile> finalProjectFiles = projectFiles;
-
         resultFiles.forEach(resultFile -> {
             SubmissionPipelineUtils.FileType fileType = SubmissionPipelineUtils.FileType.getFileTypeFromFileName(resultFile);
             boolean isCompressFile = SubmissionPipelineUtils.isCompressedByExtension(resultFile);
@@ -268,26 +258,14 @@ public class PrideAnalysisAssayService {
             ) && !isCompressFile){
                 try {
                     String fileAccession;
-                    if (reanalysisAccession == null){
-                        Optional<PrideFile> prideFile = findPrideFileInProjectFiles(resultFile, finalProjectFiles);
-                        fileAccession = prideFile.map(PrideFile::getAccession).orElse(null);
-                    }else{
-                        fileAccession = HashUtils.calculateSha1Checksum(resultFile);
-                    }
+                    fileAccession = HashUtils.calculateSha1Checksum(resultFile);
+                    String folderAccession = reanalysisAccession != null?reanalysisAccession:projectAccession;
+                    assayObjectMap = analyzeAssayInformationStep(resultFile, fileAccession, fileType);
+                    createBackupFiles(assayObjectMap, folderOutput, folderAccession);
+                    indexSpectraStep(projectAccession, fileAccession, assayObjectMap, spectraFiles, reanalysisAccession);
+                    proteinIndexStep(fileAccession, assayObjectMap, projectAccession, reanalysisAccession);
+                    closeBackupFiles(assayObjectMap);
 
-                    if(fileAccession != null){
-                        String folderAccession = reanalysisAccession != null?reanalysisAccession:projectAccession;
-                        assayObjectMap = analyzeAssayInformationStep(resultFile, fileAccession, fileType);
-                        createBackupFiles(assayObjectMap, folderOutput, folderAccession);
-
-                        indexSpectraStep(projectAccession, fileAccession, assayObjectMap, spectraFiles, reanalysisAccession);
-                        proteinIndexStep(fileAccession, assayObjectMap, projectAccession, reanalysisAccession);
-
-                        closeBackupFiles(assayObjectMap);
-
-                    }else{
-                        log.info(String.format("The file %s can be found in the result file list %s",resultFile, finalProjectFiles));
-                    }
                 } catch (Exception e) {
                     log.error("Assay -- " + resultFile + " can't be process because of the following error -- " + e.getMessage());
                     deleteFailingOutputFiles(assayObjectMap);

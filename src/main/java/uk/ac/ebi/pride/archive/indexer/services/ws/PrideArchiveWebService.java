@@ -19,6 +19,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -66,7 +67,7 @@ public class PrideArchiveWebService {
         return  Optional.empty();
     }
 
-    public List<PrideFile> findFilesByProjectAccession(String projectAccession) throws IOException {
+    public List<PrideFile> findFilesByProjectAccession(String projectAccession, boolean removeGenerated) throws IOException {
 
         final String baseUrl = prideWSPublic + "files/byProject?accession=" + projectAccession;
         List<PrideFile> files;
@@ -81,6 +82,8 @@ public class PrideArchiveWebService {
         } catch (URISyntaxException e) {
             throw new IOException("Connection to pride ws unuseful for project: " + projectAccession);
         }
+        if(removeGenerated)
+            files = files.stream().filter( x-> (!x.fileName.toLowerCase().contains("pride.mztab") && !x.fileName.toLowerCase().contains("pride.mgf"))).collect(Collectors.toList());
         return files;
     }
 
@@ -103,7 +106,7 @@ public class PrideArchiveWebService {
                 SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
 
                 String date = simpleDateFormat.format(projectOption.get().getPublicationDate());
-                List<PrideFile> files = findFilesByProjectAccession(projectAccession);
+                List<PrideFile> files = findFilesByProjectAccession(projectAccession, true);
                 try (PrintWriter writer = new PrintWriter(
                         Files.newBufferedWriter(Paths.get(fileOutput)))) {
                     writer.printf("%s\t%s\t%s\t%s", "name", "date", "accession", "ftp");
