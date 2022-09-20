@@ -171,6 +171,7 @@ process download_spectra_files{
 process perform_inference{
 
   label 'process_high'
+  publishDir "${params.outdir}", mode: 'copy', pattern: '**.mzid'
 
   input:
   file(input_files) from ch_result_uncompress_process.collect()
