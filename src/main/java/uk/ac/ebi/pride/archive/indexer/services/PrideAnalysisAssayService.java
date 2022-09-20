@@ -123,12 +123,14 @@ public class PrideAnalysisAssayService {
         PrideProject project = projectOption.get();
 
         List<PrideFile> projectFiles = prideArchiveWebService.findFilesByProjectAccession(projectAccession, true);
+        projectFiles = projectFiles.stream().filter(x -> !Objects.equals(x.getFileCategory().getAccession(), "PRIDE:1002848")).collect(Collectors.toList());
+
         if(projectFiles.size() == 0){
             throw new IOException("Not files found in the PRIDE WS for accession: " + projectAccession);
         }
-
         List<Triple<Tuple<String, String>, PrideFile, SubmissionPipelineUtils.FileType>> filesRelated = new ArrayList<>();
 
+        List<PrideFile> finalProjectFiles = projectFiles;
         resultFiles.forEach(resultFile ->{
             SubmissionPipelineUtils.FileType fileType = SubmissionPipelineUtils.FileType.getFileTypeFromFileName(resultFile);
             boolean isCompressFile = SubmissionPipelineUtils.isCompressedByExtension(resultFile);
@@ -140,7 +142,7 @@ public class PrideAnalysisAssayService {
                     if(fileType == SubmissionPipelineUtils.FileType.PRIDE)
                         filesRelated.add(new Triple<>(new Tuple<>(resultFile, null), null, null));
                     else{
-                        filesRelated.addAll(getFilesRelatedToResultFile(resultFile, spectraDataList, projectFiles));
+                        filesRelated.addAll(getFilesRelatedToResultFile(resultFile, spectraDataList, finalProjectFiles));
                     }
                 } catch (IOException e) {
                     log.info(String.format("Error reading the file %s with error %s",resultFile,e.getMessage()));
