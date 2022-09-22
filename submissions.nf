@@ -168,26 +168,6 @@ process download_spectra_files{
   """
 }
 
-process perform_inference{
-
-  label 'process_high'
-  publishDir "${params.outdir}", mode: 'copy', pattern: '**.mzid'
-
-  input:
-  file(input_files) from ch_result_uncompress_process.collect()
-
-  output:
-  file "*.mzid" into merged_results_files, merged_results_files_str
-
-  script:
-  java_mem = "-Xmx" + task.memory.toGiga() + "G"
-  """
-  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar perform-inference --app.mzid-file="${params.project_accession}-pia-output-file.mzid" --app.result-file="${(input_files as List).join(",")}"
-  """
-
-
-}
-
 //
 spectra_file_str.view { println "spectra: $it" }
 ch_result_uncompress_process_str.view { println "id: $it" }
@@ -199,7 +179,7 @@ process generate_json_index_files{
   publishDir "${params.outdir}", mode: 'copy', pattern: '**.json'
 
   input:
-    file(result_file) from merged_results_files
+    file(input_files) from ch_result_uncompress_process.collect()
     file(spectra_files) from ch_spectra_files.collect()
 
   output:
@@ -208,7 +188,7 @@ process generate_json_index_files{
   script:
   java_mem = "-Xmx" + task.memory.toGiga() + "G"
   """
-  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar generate-index-files --app.result-file="${result_file}" --app.folder-output=`pwd` --app.spectra-files="${(spectra_files as List).join(",")}" --app.project-accession=${params.project_accession} --app.minPSMs=${params.minPSMs} --app.qValueThreshold=${params.qValueThreshold} --app.qFilterProteinFDR=${params.qFilterProteinFDR} --app.peptideLength=${params.peptideLength} --app.uniquePeptides=${params.uniquePeptides}
+  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar generate-index-files --app.result-file="${(input_files as List).join(",")}" --app.folder-output=`pwd` --app.spectra-files="${(spectra_files as List).join(",")}" --app.project-accession=${params.project_accession} --app.minPSMs=${params.minPSMs} --app.qValueThreshold=${params.qValueThreshold} --app.qFilterProteinFDR=${params.qFilterProteinFDR} --app.peptideLength=${params.peptideLength} --app.uniquePeptides=${params.uniquePeptides}
   """
 }
 
