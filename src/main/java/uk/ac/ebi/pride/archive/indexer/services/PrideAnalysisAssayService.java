@@ -211,7 +211,7 @@ public class PrideAnalysisAssayService {
      * @return Object Map updated with the {@link BufferedWriter}s for each object
      * @throws IOException
      */
-    private Map<String, Object> createBackupFiles(Map<String, Object> assayObjects, String folderOutput, String projectAccession) throws IOException {
+    private Map<String, Object> createBackupFiles(Map<String, Object> assayObjects, String folderOutput, String projectAccession, String assayAccession) throws IOException {
 
         // Create first the root folder for the project
         createBackupDir(folderOutput, projectAccession);
@@ -219,18 +219,18 @@ public class PrideAnalysisAssayService {
         log.info("Creating assay file  -- " + projectAccession);
 
 
-        final String proteinEvidenceFileName = BackupUtil.getProteinEvidenceFile(folderOutput, projectAccession);
+        final String proteinEvidenceFileName = BackupUtil.getProteinEvidenceFile(folderOutput, projectAccession, assayAccession);
         assayObjects.put("proteinEvidenceFileName", proteinEvidenceFileName);
         assayObjects.put("proteinEvidenceBufferedWriter", new BufferedWriter(new FileWriter(proteinEvidenceFileName, false)));
 
-        final String archiveSpectrumFileName = BackupUtil.getArchiveSpectrumFile(folderOutput, projectAccession);
+        final String archiveSpectrumFileName = BackupUtil.getArchiveSpectrumFile(folderOutput, projectAccession, assayAccession);
         assayObjects.put("archiveSpectrumFileName", archiveSpectrumFileName);
         assayObjects.put("archiveSpectrumBufferedWriter", new BufferedWriter(new FileWriter(archiveSpectrumFileName, false)));
 
         final String archiveSpectrumFilePrefix = BackupUtil.getArchiveSpectrumFilePrefix(folderOutput, projectAccession);
         assayObjects.put("archiveSpectrumFilePrefix", archiveSpectrumFilePrefix);
 
-        final String psmSummaryEvidenceFileName = BackupUtil.getPsmSummaryEvidenceFile(folderOutput, projectAccession);
+        final String psmSummaryEvidenceFileName = BackupUtil.getPsmSummaryEvidenceFile(folderOutput, projectAccession, assayAccession);
         assayObjects.put("psmSummaryEvidenceFileName", psmSummaryEvidenceFileName);
         assayObjects.put("psmSummaryEvidenceBufferedWriter", new BufferedWriter(new FileWriter(psmSummaryEvidenceFileName, false)));
 
@@ -252,18 +252,19 @@ public class PrideAnalysisAssayService {
                         .filter( x-> SubmissionPipelineUtils.FileType.getFileTypeFromFileName(x) == SubmissionPipelineUtils.FileType.PRIDE)
                         .collect(Collectors.toSet()));
 
-        resultFiles.forEach(resultFile -> {
+        Map<String, Object> assayObjectMap = null;
+        resultFiles = resultFiles.stream().map(x -> Arrays.asList(x.split(","))).flatMap(List::stream).collect(Collectors.toList());
+        if (resultFiles.size() == 1){
+            String resultFile = resultFiles.get(0);
             SubmissionPipelineUtils.FileType fileType = SubmissionPipelineUtils.FileType.getFileTypeFromFileName(resultFile);
             boolean isCompressFile = SubmissionPipelineUtils.isCompressedByExtension(resultFile);
-            Map<String, Object> assayObjectMap = null;
             if((fileType == SubmissionPipelineUtils.FileType.MZTAB || fileType == SubmissionPipelineUtils.FileType.MZID
             ) && !isCompressFile){
                 try {
-                    String fileAccession;
-                    fileAccession = HashUtils.calculateSha1Checksum(resultFile);
+                    String fileAccession = HashUtils.calculateSha1Checksum(resultFile);
                     String folderAccession = reanalysisAccession != null?reanalysisAccession:projectAccession;
-                    assayObjectMap = analyzeAssayInformationStep(resultFile, fileAccession, fileType);
-                    createBackupFiles(assayObjectMap, folderOutput, folderAccession);
+                    assayObjectMap = analyzeAssayInformationStep(assayObjectMap, resultFile, fileAccession, fileType);
+                    createBackupFiles(assayObjectMap, folderOutput, folderAccession, fileAccession);
                     indexSpectraStep(projectAccession, fileAccession, assayObjectMap, spectraFiles, reanalysisAccession);
                     proteinIndexStep(fileAccession, assayObjectMap, projectAccession, reanalysisAccession);
                     closeBackupFiles(assayObjectMap);
@@ -273,8 +274,31 @@ public class PrideAnalysisAssayService {
                     deleteFailingOutputFiles(assayObjectMap);
                 }
             }
-        });
+        }else{
+            assayObjectMap = piaModellerService.performProteinInference(assayObjectMap, resultFiles, SubmissionPipelineUtils.FileType.MZID,
+                    qValueThreshold, qFilterProteinFDR);
+
+            String fileAccession = null;
+            try {
+                fileAccession = HashUtils.sha1InObject(assayObjectMap.get("modeller"));
+                String folderAccession = reanalysisAccession != null?reanalysisAccession:projectAccession;
+                assayObjectMap = analyzeAssayInformationStep(assayObjectMap, null, fileAccession, null);
+                createBackupFiles(assayObjectMap, folderOutput, folderAccession, fileAccession);
+                indexSpectraStep(projectAccession, fileAccession, assayObjectMap, spectraFiles, reanalysisAccession);
+                proteinIndexStep(fileAccession, assayObjectMap, projectAccession, reanalysisAccession);
+                closeBackupFiles(assayObjectMap);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+
+
+
+
+
+
+        }
     }
+
 
     /**
      * Parse sample properties parse from SDRF files or from the project properties. The sample metadata will be used from
@@ -392,17 +416,22 @@ public class PrideAnalysisAssayService {
      * @return Object Map with all psms, peptides and proteins lists
      * @throws IOException
      */
-    public Map<String, Object> analyzeAssayInformationStep(String resultFile, String fileAccession, SubmissionPipelineUtils.FileType fileType) throws IOException {
+    public Map<String, Object> analyzeAssayInformationStep(Map<String, Object> objectMap, String resultFile, String fileAccession,
+                                                           SubmissionPipelineUtils.FileType fileType) throws IOException {
 
         long initAnalysisAssay = System.currentTimeMillis();
 
         log.info("Analyzing assay file  -- " + resultFile);
 
         Map<String, Object> assayObjectMap = new HashMap<>();
+        PIAModeller modeller;
+        if(objectMap != null && objectMap.containsKey("modeller"))
+            modeller = (PIAModeller) objectMap.get("modeller");
+        else
+            modeller = piaModellerService.performProteinInference(fileAccession,resultFile,
+                    fileType, qValueThreshold, qFilterProteinFDR);
 
         // The first threshold for modeller is not threshold at PSM and Protein level.
-        PIAModeller modeller = piaModellerService.performProteinInference(fileAccession,resultFile,
-                fileType, qValueThreshold, qFilterProteinFDR);
 
         long nrDecoys = modeller.getPSMModeller().getAllFilteredReportPSMs(new ArrayList<>()).stream()
                 .filter(ReportPSM::getIsDecoy)

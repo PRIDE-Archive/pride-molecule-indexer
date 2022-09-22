@@ -99,7 +99,7 @@ result_file_summary.splitCsv(skip: 1, sep: '\t')
 
 //ch_result_files.subscribe { println "value: $it" }
 
-// Download with wget and Uncompress result files. For now only supports mzid.
+// Download with wget and Uncompress result files
 process uncompress_result_files{
 
    label 'downloading_thread'
@@ -108,7 +108,7 @@ process uncompress_result_files{
      tuple result_id, result_file_path from ch_result_files.result_files
 
    output:
-   file("*.mzid") into ch_result_uncompress, ch_result_uncompress_process, ch_result_uncompress_process_str
+     tuple result_id, file("*") into ch_result_uncompress, ch_result_uncompress_process, ch_result_uncompress_process_str
 
    script:
    """
@@ -116,6 +116,8 @@ process uncompress_result_files{
    gunzip -f '${result_id}'
    """
 }
+
+ch_result_uncompress_process_str.subscribe { println "value: $it" }
 
 // Get the related spectra for each result file.
 process project_get_related_spectra{
@@ -125,74 +127,100 @@ process project_get_related_spectra{
   publishDir "${params.outdir}/related_files", mode: 'copy', pattern: '*.tsv'
 
   input:
-  file(uncompress_result) from ch_result_uncompress
+    tuple result_id, file(uncompress_result) from ch_result_uncompress
 
   output:
-  file("*.tsv") into ch_spectra_summary
+    tuple result_id, file("*.tsv") into ch_spectra_summary
 
   script:
   java_mem = "-Xmx" + task.memory.toGiga() + "G"
   """
   java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar get-related-files --app.project-accession=${params.project_accession} \
-       --app.file-output="${params.project_accession}-${uncompress_result.getName()}-result_spectra.tsv" --app.result-file="${uncompress_result}"
+       --app.file-output="${params.project_accession}-${result_id}-result_spectra.tsv" --app.result-file="${uncompress_result}"
   """
 }
 
 // ch_spectra_summary.subscribe { println "value: $it" }
 
-ch_spectra_tuple_results = ch_spectra_summary.map { tuple_summary ->
-                         def list_spectra = tuple_summary.splitCsv(skip: 1, sep: '\t').collect{"'" + it[5] + "'"}.flatten()
-                         return list_spectra.findAll{ it != "'null'"}
-                                            .collect{ it-> it.replace("ftp://", "https://")}
-                         }.flatten()
+ch_spectra_summary.map { tuple_summary ->
+                         def key = tuple_summary[0]
+                         def summary_file = tuple_summary[1]
+                         def list_spectra = tuple_summary[1].splitCsv(skip: 1, sep: '\t')
+                         .collect{"'" + it[5] + "'"}
+                         .flatten()
+                         return tuple(key.toString(), list_spectra.findAll{ it != "'null'"}
+                                                                  .collect{ it-> it.replace("ftp://", "http://")})
+                        }
+                   .groupTuple()
+                   .into { ch_spectra_tuple_results; ch_spectra_pride_xml; ch_spectra_files_str}
 
+ch_spectra_files_str.subscribe { println "value: $it" }
 
-
-// ch_spectra_tuple_results.view { println "spectra_file: $it" }
-
-// Download the spectra files related to the files.
+//Download the spectra files related to the files.
 process download_spectra_files{
 
   label 'downloading_thread'
 
   input:
-  val spectra from ch_spectra_tuple_results
+  tuple val(result_id), spectra from ch_spectra_tuple_results
 
   output:
-  path("*") into ch_spectra_files, spectra_file_str, ch_spectra_files_process
+  tuple val(result_id), path("*") into ch_spectra_files, spectra_file_view, spectra_file_str
+
+  when:
+  !spectra.flatten().isEmpty()
 
   script:
   """
-  wget ${spectra}
+  wget ${spectra.flatten().join(" ")}
   find . -type f -name '*.gz' -exec gzip -d {} \\;
   """
 }
 
-//
-spectra_file_str.view { println "spectra: $it" }
-ch_result_uncompress_process_str.view { println "id: $it" }
+ch_spectra_files_process =  ch_spectra_files.map { id, files ->
+                                                        files instanceof List ? [ id, files.collect{ it } ]
+                                                        : [ id, [ files ] ] }
+spectra_file_view.ifEmpty{ ch_spectra_files_process =  ch_spectra_pride_xml}
+
+spectra_file_str.subscribe { println "spectra value: $it" }
+
+ch_result_uncompress_process.combine(ch_spectra_files_process, by:0).into{ch_final_map; ch_result_uncompress_process_str}
+
+ch_result_uncompress_process_str.subscribe { println "value-2: $it" }
 
 process generate_json_index_files{
 
   label 'process_high'
-
-  publishDir "${params.outdir}", mode: 'copy', pattern: '**.json'
+  publishDir "${params.outdir}", mode: 'copy', pattern: '**_ArchiveSpectrum.json'
 
   input:
-    file(input_files) from ch_result_uncompress_process.collect()
-    file(spectra_files) from ch_spectra_files.collect()
+    val(result_id) from ch_final_map
 
   output:
-    file("**.json") optional true into final_index_json
+    file("**_ArchiveSpectrum.json") optional true into final_batch_json
+    file("**_ArchiveProteinEvidence.json") optional true into final_protein_json, final_protein_json_view
+    file("**_ArchiveSpectrum_Total.json") optional true into final_spectrum_total_json
+    file("**_SummaryArchiveSpectrum.json") optional true into final_summary_json, final_summary_json_view
 
   script:
   java_mem = "-Xmx" + task.memory.toGiga() + "G"
   """
-  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar generate-index-files --app.result-file="${(input_files as List).join(",")}" --app.folder-output=`pwd` --app.spectra-files="${(spectra_files as List).join(",")}" --app.project-accession=${params.project_accession} --app.minPSMs=${params.minPSMs} --app.qValueThreshold=${params.qValueThreshold} --app.qFilterProteinFDR=${params.qFilterProteinFDR} --app.peptideLength=${params.peptideLength} --app.uniquePeptides=${params.uniquePeptides}
+  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar generate-index-files --app.result-file="${result_id[1]}" --app.folder-output=`pwd` --app.spectra-files="${result_id[2].join(",")}" --app.project-accession=${params.project_accession} --app.minPSMs=${params.minPSMs} --app.qValueThreshold=${params.qValueThreshold} --app.qFilterProteinFDR=${params.qFilterProteinFDR} --app.peptideLength=${params.peptideLength} --app.uniquePeptides=${params.uniquePeptides}
   """
 }
 
-// final_index_json.subscribe { println "value: $it" println " "}
+final_protein_json.collectFile(
+        name: "${params.project_accession}_ArchiveProteinEvidence.json",
+        storeDir: "${params.outdir}/${params.project_accession}")
+
+final_spectrum_total_json.collectFile(
+        name: "${params.project_accession}_ArchiveSpectrum_Total.json",
+        storeDir: "${params.outdir}/${params.project_accession}")
+
+final_summary_json.collectFile(
+        name: "${params.project_accession}_SummaryArchiveSpectrum.json",
+        storeDir: "${params.outdir}/${params.project_accession}")
+
 
 //--------------------------------------------------------------- //
 //---------------------- Nextflow specifics --------------------- //
