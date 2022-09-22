@@ -28,22 +28,22 @@ public class BackupUtil {
         bw.newLine();
     }
 
-    public static String getProteinEvidenceFile(String backupPath, String projectAccession) {
+    public static String getProteinEvidenceFile(String backupPath, String projectAccession, String assayAccession) {
         if (!backupPath.endsWith(File.separator)) {
             backupPath = backupPath + File.separator;
         }
-        return backupPath + projectAccession + File.separator + projectAccession + "_" + ArchiveProteinEvidence.class.getSimpleName() + JSON_EXT;
+        return backupPath + projectAccession + File.separator + projectAccession + "_" + assayAccession + "_" + ArchiveProteinEvidence.class.getSimpleName() + JSON_EXT;
     }
 
     public static String getArchiveSpectrumFileBatch(String filePrefix, String batch){
         return filePrefix + "_" + batch + "_" + ArchiveSpectrum.class.getSimpleName() + JSON_EXT;
     }
 
-    public static String getArchiveSpectrumFile(String backupPath, String projectAccession) {
+    public static String getArchiveSpectrumFile(String backupPath, String projectAccession, String assayAccession) {
         if (!backupPath.endsWith(File.separator)) {
             backupPath = backupPath + File.separator;
         }
-        return backupPath + projectAccession + File.separator + projectAccession + "_" + ArchiveSpectrum.class.getSimpleName() + JSON_EXT;
+        return backupPath + projectAccession + File.separator + projectAccession + "_" + assayAccession + "_" +ArchiveSpectrum.class.getSimpleName() + "_Total" +JSON_EXT;
     }
 
     public static String getArchiveSpectrumFilePrefix(String backupPath, String projectAccession) {
@@ -53,11 +53,11 @@ public class BackupUtil {
         return backupPath + projectAccession + File.separator + projectAccession;
     }
 
-    public static String getPsmSummaryEvidenceFile(String backupPath, String projectAccession) {
+    public static String getPsmSummaryEvidenceFile(String backupPath, String projectAccession, String assayAccession) {
         if (!backupPath.endsWith(File.separator)) {
             backupPath = backupPath + File.separator;
         }
-        return backupPath + projectAccession + File.separator + projectAccession + "_" + SummaryArchiveSpectrum.class.getSimpleName() + JSON_EXT;
+        return backupPath + projectAccession + File.separator + projectAccession + "_" + assayAccession + "_" + SummaryArchiveSpectrum.class.getSimpleName() + JSON_EXT;
     }
 
     public static <T> List<T> getObjectsFromFile(Path file, Class classType) throws Exception {

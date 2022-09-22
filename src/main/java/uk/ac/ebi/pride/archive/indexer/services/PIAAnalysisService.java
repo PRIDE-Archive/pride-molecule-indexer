@@ -40,11 +40,11 @@ public class PIAAnalysisService {
     }
 
     public void performProteinInference(List<String> filePaths, SubmissionPipelineUtils.FileType fileType, String outputPath) throws IOException {
-        PIAModeller modeller = piaModellerInference.performProteinInference(filePaths, fileType, qValueThreshold, qFilterProteinFDR);
-        MzIdentMLExporter exporter = new MzIdentMLExporter(modeller);
-        boolean exportOK = exporter.exportToMzIdentML(0L, new File(outputPath), false, true);
-        if (exportOK)
-            log.info("Analysis completed without errors.");
+//        PIAModeller modeller = piaModellerInference.performProteinInference(filePaths, fileType, qValueThreshold, qFilterProteinFDR);
+//        MzIdentMLExporter exporter = new MzIdentMLExporter(modeller);
+//        boolean exportOK = exporter.exportToMzIdentML(0L, new File(outputPath), true, false);
+//        if (exportOK)
+//            log.info("Analysis completed without errors.");
     }
 
     public void setqValueThreshold(Double qValueThreshold) {

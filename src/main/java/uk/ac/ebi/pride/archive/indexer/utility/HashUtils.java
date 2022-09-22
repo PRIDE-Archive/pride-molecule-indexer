@@ -42,4 +42,30 @@ public class HashUtils {
         while (digestInputStream.read(bytesRead) != -1) ;
         return normalize(inputStreamMessageDigest);
     }
+
+    public static String sha1InObject(Object object) throws Exception {
+        if (object == null) {
+            throw new Exception("Object is null.");
+        }
+
+        String input = String.valueOf(object);
+
+        MessageDigest md;
+        try {
+            md = MessageDigest.getInstance("SHA1");
+        } catch (NoSuchAlgorithmException ex) {
+            return null;
+        }
+        md.reset();
+
+        byte[] buffer = input.getBytes();
+        md.update(buffer);
+
+        byte[] digest = md.digest();
+        String hexStr = "";
+        for (int i = 0; i < digest.length; i++) {
+            hexStr += Integer.toString((digest[i] & 0xff) + 0x100, 16).substring(1);
+        }
+        return hexStr;
+    }
 }
