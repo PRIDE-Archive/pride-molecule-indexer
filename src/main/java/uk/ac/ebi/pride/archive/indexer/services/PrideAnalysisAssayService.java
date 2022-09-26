@@ -518,6 +518,12 @@ public class PrideAnalysisAssayService {
 
             JmzReaderSpectrumService finalService = service;
             Map<String, List<PeptideSpectrumOverview>> proteinToPsms = new HashMap<>();
+
+            Map<String, List<uk.ac.ebi.pride.archive.dataprovider.common.Triple<String, Double,String>>> proteinsPSMsScores = new HashMap<>();
+            Map<String, List<String>> peptideToProteins = new HashMap<>();
+            Map<String, Set<String>> proteinPTMs = new HashMap<>();
+            Map<String, List<Boolean>> proteinDecoys = new HashMap<>();
+
             List<Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> finalRelatedFiles = relatedFiles;
             psms.forEach(psm -> {
                 BufferedWriter batchBufferWriter = null;
@@ -690,7 +696,7 @@ public class PrideAnalysisAssayService {
                             misssedCleavages = uk.ac.ebi.pride.utilities.mol.MoleculeUtilities.calcMissedCleavages(psm.getSequence());
                         }
 
-                        if(psm.getSpectrum().getSourceID().contains("1223"))
+                        if(psm.getIsDecoy())
                             log.info("");
 
                         BinaryArchiveSpectrum archivePSM = BinaryArchiveSpectrum
@@ -766,6 +772,7 @@ public class PrideAnalysisAssayService {
                         }
                         // construction of USI list.
                         PeptideSpectrumOverview psmOverview = new PeptideSpectrumOverview(psm.getCharge(), psm.getMassToCharge(), usi,psm.getSequence(),SubmissionPipelineUtils.encodePeptide(psm.getSequence(), psm.getModifications()));
+
                         psm.getAccessions().forEach( x -> {
                             // For some reason for protein accessions for PSMs are not in any of the protein reported proteins.
                             if (findProteinInReports(proteins, x.getAccession()).isPresent()){
@@ -776,8 +783,37 @@ public class PrideAnalysisAssayService {
                                 usis.add(psmOverview);
                                 proteinToPsms.put(x.getAccession(), usis);
                             }
-                        });
+                            //Get the protein Score
+                            List<uk.ac.ebi.pride.archive.dataprovider.common.Triple<String, Double,String>> pcms = new ArrayList<>();
+                            Double pcmScore = Double.valueOf(archivePSM.getBestSearchEngineScore().getValue());
 
+                            if(proteinsPSMsScores.containsKey(x.getAccession())){
+                                pcms = proteinsPSMsScores.get(x.getAccession());
+                            }
+                            pcms.add(new uk.ac.ebi.pride.archive.dataprovider.common.Triple<>(archivePSM.getPeptidoform(), pcmScore, archivePSM.getUsi()));
+                            proteinsPSMsScores.put(x.getAccession(), pcms);
+
+                            // Get protein uniqueness
+                            List<String> proteinIds = new ArrayList<>();
+                            if(peptideToProteins.containsKey(archivePSM.getPeptidoform()))
+                                proteinIds = peptideToProteins.get(archivePSM.getPeptidoform());
+                            proteinIds.add(x.getAccession());
+                            peptideToProteins.put(archivePSM.getPeptidoform(),proteinIds);
+
+                            // Get protein decoys
+                            List<Boolean> decoys = new ArrayList<>();
+                            if(proteinDecoys.containsKey(x.getAccession()))
+                                decoys = proteinDecoys.get(x.getAccession());
+                            decoys.add(archivePSM.getIsDecoy());
+                            proteinDecoys.put(x.getAccession(), decoys);
+
+                            Set<String> ptms = new HashSet<>();
+                            if(proteinPTMs.containsKey(x.getAccession()))
+                                ptms = proteinPTMs.get(x.getAccession());
+                            ptms.addAll(archivePSM.getModifications().stream().map(m -> m.getModification().getName()).collect(Collectors.toList()));
+                            proteinPTMs.put(x.getAccession(), ptms);
+
+                        });
 
                     }else{
                         log.info(String.format("The following spectrum ID is not found in the PRIDE XML -- %s", finalSpectrum.getSourceID()));
@@ -789,6 +825,18 @@ public class PrideAnalysisAssayService {
                 }
             });
             assayObjects.put("proteinToPsms", proteinToPsms);
+
+            Map<String, Double> proteinScores = InferenceService.getBestQValue(proteinsPSMsScores);
+            assayObjects.put("proteinScores", proteinScores);
+
+            Map<String, String> proteinCategories = InferenceService.getInferenceCategories(peptideToProteins, proteinScores.keySet());
+            assayObjects.put("proteinStatus", proteinCategories);
+
+            // Get decoys
+            Map<String, Boolean> decoyStatus = proteinDecoys.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().stream().anyMatch(x -> x)));
+            assayObjects.put("proteinDecoys", decoyStatus);
+
+            assayObjects.put("proteinPTMs", proteinPTMs);
 
             spectraPartitionWriters.values().forEach(x -> {
                 try {
@@ -881,129 +929,68 @@ public class PrideAnalysisAssayService {
         }).findFirst();
 
     }
-    public void proteinIndexStep(String fileAccession, Map<String, Object> assayObjects, String projectAccession, String reanalysisAccession) throws Exception {
 
-        long initInsertPeptides = System.currentTimeMillis();
+    public void proteinIndexStep(String fileAccession, Map<String, Object> assayObjects, String projectAccession, String reanalysisAccession) throws Exception {
 
         if (assayObjects.get("modeller") != null) {
             log.info("proteinIndexStep assay file  -- " + assayObjects.get("modeller").toString());
 
-            List<ReportProtein> proteins = (List<ReportProtein>) assayObjects.get("proteins");
-            List<ReportPSM> psms = (List<ReportPSM>) assayObjects.get("psms");
             Map<String, List<PeptideSpectrumOverview>> proteinsToPsms = (Map<String, List<PeptideSpectrumOverview>>) assayObjects.get("proteinToPsms");
+            Map<String, Double> proteinScores = (Map<String, Double>) assayObjects.get("proteinScores");
+            Map<String, String> proteinCategories = (Map<String, String>) assayObjects.get("proteinStatus");
+            Map<String, Boolean> decoyStatus = (Map<String, Boolean>) assayObjects.get("proteinDecoys");
+            Map<String, Set<String>> proteinPTMs = (Map<String, Set<String>>) assayObjects.get("proteinPTMs");
+
             System.out.println(proteinsToPsms.keySet());
 
-            Comparator<ReportProtein> comparator = Comparator.comparing(ReportProtein::getScore);
-            proteins.sort(comparator.reversed());
-
-            Set<String> proteinIds = new HashSet<>();
-            Set<String> peptideSequences = new HashSet<>();
-
-            Set<Double> qValues = proteins.stream().map(ReportProtein::getQValue).collect(Collectors.toSet());
-            Set<Double> fdrValues = proteins.stream().map(ReportProtein::getFDR).collect(Collectors.toSet());
-            List<String> accessions = new ArrayList<>();
-
             for (String proteinKey: proteinsToPsms.keySet()) {
-                Optional<ReportProtein> proteinOptional = findProteinInReports(proteins, proteinKey);
 
-                if(!proteinOptional.isPresent()){
-                    log.info("Protein from PSms not in Protein reports -- " + proteinKey);
-                }else{
-                    ReportProtein protein = proteinOptional.get();
-                    // For some reasons the ReportProtein list is bigger that the protein keys associated with the PSMs (proteinsToPsms)
-                    if (!accessions.contains(proteinKey)){
+                String value = df.format(-1 * Math.log10(proteinScores.get(proteinKey)));
+                Param bestSearchEngineScore = new Param(CvTermReference.MS_PIA_PROTEIN_SCORE.getAccession(), CvTermReference.MS_PIA_PROTEIN_SCORE.getName(), value);
 
-                        accessions.add(proteinKey);
-                        Set<String> proteinGroups = protein.getAccessions()
-                                .stream().map(Accession::getAccession)
-                                .collect(Collectors.toSet());
+                Set<PeptideSpectrumOverview> proteinToPsms = new HashSet<>(proteinsToPsms.get(proteinKey));
+                proteinToPsms = proteinToPsms.stream().collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(PeptideSpectrumOverview::getPeptideSequence))),
+                HashSet::new));
 
-                        List<String> proteinPTMs = new ArrayList<>(convertProteinModifications(protein.getPeptides()));
+                log.info("Protein -- " + proteinKey + " # PSMs -- " + proteinToPsms.size());
 
-                        Set<Param> scores = new HashSet<>();
-                        Param bestSearchEngineScore = null;
+                Set<CvParam> validationMethods = (Set<CvParam>) assayObjects.get("validationMethods");
 
+                boolean isValid = (boolean) assayObjects.get("isValid");
 
-                        if (Double.isFinite(protein.getQValue()) && !Double.isNaN(protein.getQValue())) {
-                            Double qValue = SubmissionPipelineUtils.getQValueLower(protein.getQValue(), qValues);
-                            Param score = new Param(CvTermReference.MS_PIA_PROTEIN_GROUP_QVALUE.getAccession(), CvTermReference.MS_PIA_PROTEIN_GROUP_QVALUE.getName(), String.valueOf(qValue));
-                            scores.add(score);
-                        }
+                int nPSMs = proteinToPsms.size();
+                int nPeptides = proteinToPsms.stream().map(PeptideSpectrumOverview::getPeptideSequence).collect(Collectors.toSet()).size();
 
-                        if (protein.getScore() != null && !protein.getScore().isNaN()) {
-                            String value = df.format(protein.getScore());
-                            bestSearchEngineScore = new Param(CvTermReference.MS_PIA_PROTEIN_SCORE.getAccession(), CvTermReference.MS_PIA_PROTEIN_SCORE.getName(), value);
-                            scores.add(bestSearchEngineScore);
-                        }
+                Set<Param> properties = Collections.singleton(new Param("MS:1001600", "protein inference confidence category", proteinCategories.get(proteinKey)));
 
-                        if (Double.isFinite(protein.getFDR()) && !Double.isNaN(protein.getFDR())) {
-
-                            Double fdr = SubmissionPipelineUtils.getQValueLower(protein.getFDR(), fdrValues);
-                            Param score = new Param(CvTermReference.MS_FDR_PROTEIN.getAccession(), CvTermReference.MS_FDR_PROTEIN.getName(), String.valueOf(fdr));
-                            scores.add(score);
-                        }
-
-                        if(protein.getRepresentative() != null && protein.getRepresentative().getAccession() != null
-                                && proteinsToPsms.containsKey(protein.getRepresentative().getAccession())){
-                            Set<PeptideSpectrumOverview> proteinToPsms = new HashSet<>(proteinsToPsms.get(protein.getRepresentative().getAccession()));
-                            proteinToPsms = proteinToPsms.stream().collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(PeptideSpectrumOverview::getPeptideSequence))),
-                                    HashSet::new));
-
-                            log.info("Protein -- " + proteinKey + " # PSMs -- " + proteinToPsms.size());
-
-
-                            proteinIds.add(proteinKey);
-                            protein.getPeptides().forEach(x -> peptideSequences.add(x.getSequence()));
-
-                            Set<CvParam> validationMethods = (Set<CvParam>) assayObjects.get("validationMethods");
-
-                            boolean isValid = (boolean) assayObjects.get("isValid");
-
-                            int nPSMs = proteinToPsms.size();
-                            int nPeptides = proteinToPsms.stream().map(PeptideSpectrumOverview::getPeptideSequence).collect(Collectors.toSet()).size();
-
-                            Double coverage = protein.getCoverage(proteinKey);
-                            if(coverage.equals(Double.NaN) || coverage.equals(Double.POSITIVE_INFINITY))
-                                coverage = null;
-
-                            String proteinSequence = null;
-                            if(protein.getAccessions().stream().anyMatch(y -> y.getAccession().equalsIgnoreCase(proteinKey))){
-                                proteinSequence = protein.getAccessions().stream().filter( y -> y.getAccession().equalsIgnoreCase(proteinKey)).findAny().get().getDbSequence();
-                            }
-
-                            ArchiveProteinEvidence proteinEvidence = ArchiveProteinEvidence
-                                    .builder()
-                                    .reportedAccession(proteinKey)
-                                    .isDecoy(protein.getIsDecoy())
-                                    .proteinGroupMembers(proteinGroups)
-                                    .modificationsNames(proteinPTMs)
-                                    .projectAccession(projectAccession)
-                                    .reanalysisAccession(reanalysisAccession)
-                                    .assayAccession(fileAccession)
-                                    .isValid(isValid)
-                                    .numberPeptides(nPeptides)
-                                    .numberPSMs(nPSMs)
-                                    .scores(scores)
-                                    .bestSearchEngineScore(bestSearchEngineScore)
-                                    .sequenceCoverage(coverage)
-                                    .proteinSequence(proteinSequence)
-                                    .qualityEstimationMethods(validationMethods.stream().map(x -> new Param(x.getAccession(), x.getName(), x.getValue())).collect(Collectors.toSet()))
-                                    .psmAccessions(proteinToPsms)
-                                    .build();
+                ArchiveProteinEvidence proteinEvidence = ArchiveProteinEvidence
+                        .builder()
+                        .reportedAccession(proteinKey)
+                        .modificationsNames(new ArrayList<>(proteinPTMs.get(proteinKey)))
+                        .projectAccession(projectAccession)
+                        .reanalysisAccession(reanalysisAccession)
+                        .assayAccession(fileAccession)
+                        .isValid(isValid)
+                        .numberPeptides(nPeptides)
+                        .numberPSMs(nPSMs)
+                        .properties(properties)
+                        .isDecoy(decoyStatus.get(proteinKey))
+                        .bestSearchEngineScore(bestSearchEngineScore)
+                        .qualityEstimationMethods(validationMethods.stream().map(x -> new Param(x.getAccession(), x.getName(), x.getValue())).collect(Collectors.toSet()))
+                        .psmAccessions(proteinToPsms)
+                        .build();
 
                             try {
                                 BackupUtil.write(proteinEvidence, (BufferedWriter) assayObjects.get("proteinEvidenceBufferedWriter"));
-                                log.info(String.format("Protein %s -- Number of peptides %s", protein.getRepresentative().getAccession(), nPeptides));
+                                log.info(String.format("Protein %s -- Number of peptides %s", proteinKey, nPeptides));
                             }catch (Exception e) {
                                 log.error(e.getMessage(), e);
                                 throw new Exception(e);
                             }
                         }
-                    }else{
-                        log.info("Protein Accession already in report -- " + protein.getRepresentative().getAccession());
-                    }
-                }
-            }
+
+
+
         }
     }
 
