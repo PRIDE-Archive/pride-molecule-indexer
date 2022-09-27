@@ -191,16 +191,12 @@ ch_result_uncompress_process_str.subscribe { println "value-2: $it" }
 process generate_json_index_files{
 
   label 'process_high'
-  publishDir "${params.outdir}", mode: 'copy', pattern: '**_ArchiveSpectrum.json'
 
   input:
-    val(result_id) from ch_final_map
+  val(result_id) from ch_final_map
 
   output:
-    file("**_ArchiveSpectrum.json") optional true into final_batch_json
-    file("**_ArchiveProteinEvidence.json") optional true into final_protein_json, final_protein_json_view
-    file("**_ArchiveSpectrum_Total.json") optional true into final_spectrum_total_json
-    file("**_SummaryArchiveSpectrum.json") optional true into final_summary_json, final_summary_json_view
+  file("**_ArchiveSpectrum_Total.json") optional true into final_spectrum_total_json
 
   script:
   java_mem = "-Xmx" + task.memory.toGiga() + "G"
@@ -209,17 +205,9 @@ process generate_json_index_files{
   """
 }
 
-final_protein_json.collectFile(
-        name: "${params.project_accession}_ArchiveProteinEvidence.json",
-        storeDir: "${params.outdir}/${params.project_accession}")
-
-total_spectrum_file = final_spectrum_total_json.collectFile(
+(total_spectrum_file_final, total_spectrum_file) = final_spectrum_total_json.collectFile(
         name: "${params.project_accession}_ArchiveSpectrum_Total.json",
-        storeDir: "${params.outdir}/${params.project_accession}")
-
-final_summary_json.collectFile(
-        name: "${params.project_accession}_SummaryArchiveSpectrum.json",
-        storeDir: "${params.outdir}/${params.project_accession}")
+        storeDir: "${params.outdir}/${params.project_accession}").into(2)
 
 process convert_to_mgf{
 
@@ -254,7 +242,7 @@ process maracluster_clustering{
   file(total_spectra) from mgf_files
 
   output:
-  file "maracluster_output/*.tsv" into maracluster_results
+  file "maracluster_output/*.clusters_p10.tsv" into maracluster_results
 
   script:
   """
@@ -264,6 +252,39 @@ process maracluster_clustering{
 
 }
 
+process final_inference_after_clustering{
+
+  label 'process_high'
+  publishDir "${params.outdir}", mode: 'copy', pattern: '**_ArchiveSpectrum.json'
+
+  input:
+  file(clustering_file) from maracluster_results
+  file(total_spectrum) from total_spectrum_file_final
+
+  output:
+    file("**_ArchiveSpectrum.json") optional true into final_batch_json_inference
+    file("**_ArchiveProteinEvidence.json") optional true into final_protein_json_inference, final_protein_json_view_inference
+    file("**_ArchiveSpectrum_Total.json") optional true into final_spectrum_total_json_inference
+    file("**_SummaryArchiveSpectrum.json") optional true into final_summary_json_inference, final_summary_json_view_inference
+
+  script:
+  java_mem = "-Xmx" + task.memory.toGiga() + "G"
+  """
+  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar perform-inference --app.output-folder=`pwd` --app.archive-spectra="${total_spectrum}" --app.cluster-file="${clustering_file}" --app.project-accession="${params.project_accession}"
+  """
+}
+
+final_protein_json_inference.collectFile(
+        name: "${params.project_accession}_ArchiveProteinEvidence.json",
+        storeDir: "${params.outdir}/${params.project_accession}")
+
+final_spectrum_total_json_inference.collectFile(
+        name: "${params.project_accession}_ArchiveSpectrum_Total.json",
+        storeDir: "${params.outdir}/${params.project_accession}")
+
+final_summary_json_inference.collectFile(
+        name: "${params.project_accession}_SummaryArchiveSpectrum.json",
+        storeDir: "${params.outdir}/${params.project_accession}")
 
 //--------------------------------------------------------------- //
 //---------------------- Nextflow specifics --------------------- //
