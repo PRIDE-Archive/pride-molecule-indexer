@@ -213,13 +213,56 @@ final_protein_json.collectFile(
         name: "${params.project_accession}_ArchiveProteinEvidence.json",
         storeDir: "${params.outdir}/${params.project_accession}")
 
-final_spectrum_total_json.collectFile(
+total_spectrum_file = final_spectrum_total_json.collectFile(
         name: "${params.project_accession}_ArchiveSpectrum_Total.json",
         storeDir: "${params.outdir}/${params.project_accession}")
 
 final_summary_json.collectFile(
         name: "${params.project_accession}_SummaryArchiveSpectrum.json",
         storeDir: "${params.outdir}/${params.project_accession}")
+
+process convert_to_mgf{
+
+  label 'process_high'
+  publishDir "${params.outdir}/${params.project_accession}", mode: 'copy', pattern: '**.mgf'
+
+  input:
+  file(total_spectra) from total_spectrum_file
+
+  output:
+  file "*.mgf" into mgf_files
+
+  script:
+  java_mem = "-Xmx" + task.memory.toGiga() + "G"
+  """
+  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar generate-mgf-files --app.archive-spectra="${total_spectra}" --app.mgf-file=${params.project_accession}.mgf
+  """
+}
+
+process maracluster_clustering{
+
+  label 'process_high'
+  publishDir "${params.outdir}/${params.project_accession}", mode: 'copy', pattern: '**.tsv'
+
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://containers.biocontainers.pro/s3/SingImgsRepo/maracluster/1.02.1_cv1/maracluster_1.02.1_cv1.sif"
+  } else {
+      container "biocontainers/maracluster:1.02.1_cv1"
+  }
+
+  input:
+  file(total_spectra) from mgf_files
+
+  output:
+  file "maracluster_output/*.tsv" into maracluster_results
+
+  script:
+  """
+  echo ${total_spectra} > bash_files.txt
+  maracluster batch -b bash_files.txt -t -10 --clusterThresholds -10
+  """
+
+}
 
 
 //--------------------------------------------------------------- //

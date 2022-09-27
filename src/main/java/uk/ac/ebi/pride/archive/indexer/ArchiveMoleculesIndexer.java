@@ -231,10 +231,29 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
             if(resultFileOptions.size() != 1){
                 throw new Exception("The archive spectra file must be provided --app.archive-spectra");
             }
-            String outpuFile = resultFileOptions.stream()
-                    .map(this::cleanFileName).findAny().get();
 
-            inferenceAnalysisService.performProteinInference(resultFileOptions.get(0), outpuFile);
+            List<String> maraClusterOption = args.getOptionValues("app.cluster-file");
+            if(resultFileOptions.size() != 1){
+                throw new Exception("A file containing the clusters of the spectra --app.cluster-file");
+            }
+
+            List<String> outputFolderOption = args.getOptionValues("app.output-folder");
+            if(outputFolderOption == null || outputFolderOption.size() > 1)
+                throw new Exception("Output folder must be specified --app.output-folder");
+
+            List<String> projectAccessionOption = args.getOptionValues("app.project-accession");
+            if(projectAccessionOption.size() != 1){
+                throw new Exception("Project Accession must be only one project --app.project-accession");
+            }
+            String projectAccession = projectAccessionOption.get(0);
+
+            List<String> reanalysisAccessionOption = args.getOptionValues("app.reanalysis-accession");
+            String reanalysisAccession = null;
+            if(reanalysisAccessionOption != null && reanalysisAccessionOption.size() != 0){
+                reanalysisAccession = reanalysisAccessionOption.get(0);
+            }
+            inferenceAnalysisService.performProteinInference(resultFileOptions.get(0), maraClusterOption.get(0), projectAccession,
+                    reanalysisAccession, outputFolderOption.get(0));
 
         }
         // Convert pride json files to mgf

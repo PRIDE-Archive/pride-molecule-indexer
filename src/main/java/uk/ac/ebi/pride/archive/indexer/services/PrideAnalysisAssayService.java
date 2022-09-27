@@ -92,7 +92,7 @@ public class PrideAnalysisAssayService {
     @Value("${batch:#{20000}}")
     private int numInbatch;
 
-    final DecimalFormat df = new DecimalFormat("###.#####");
+    static final DecimalFormat df = new DecimalFormat("###.#####");
 
     static final OboMapper efoOboMapper = OboMapper.getEFOOboMapper(false);
 
@@ -183,7 +183,7 @@ public class PrideAnalysisAssayService {
      * @return Final path folderOutput + projectAccession
      * @throws AccessDeniedException
      */
-    private void createBackupDir(String folderOutput, String projectAccession) throws IOException {
+    public static void createBackupDir(String folderOutput, String projectAccession) throws IOException {
         String path = folderOutput;
 
         if(!new File(folderOutput).isDirectory() || !new File(folderOutput).exists())
@@ -290,12 +290,6 @@ public class PrideAnalysisAssayService {
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-
-
-
-
-
-
         }
     }
 
@@ -930,68 +924,61 @@ public class PrideAnalysisAssayService {
 
     }
 
-    public void proteinIndexStep(String fileAccession, Map<String, Object> assayObjects, String projectAccession, String reanalysisAccession) throws Exception {
+    public static void proteinIndexStep(String fileAccession, Map<String, Object> assayObjects, String projectAccession, String reanalysisAccession) throws Exception {
 
-        if (assayObjects.get("modeller") != null) {
-            log.info("proteinIndexStep assay file  -- " + assayObjects.get("modeller").toString());
+        Map<String, List<PeptideSpectrumOverview>> proteinsToPsms = (Map<String, List<PeptideSpectrumOverview>>) assayObjects.get("proteinToPsms");
+        Map<String, Double> proteinScores = (Map<String, Double>) assayObjects.get("proteinScores");
+        Map<String, String> proteinCategories = (Map<String, String>) assayObjects.get("proteinStatus");
+        Map<String, Boolean> decoyStatus = (Map<String, Boolean>) assayObjects.get("proteinDecoys");Map<String, Set<String>> proteinPTMs = (Map<String, Set<String>>) assayObjects.get("proteinPTMs");
 
-            Map<String, List<PeptideSpectrumOverview>> proteinsToPsms = (Map<String, List<PeptideSpectrumOverview>>) assayObjects.get("proteinToPsms");
-            Map<String, Double> proteinScores = (Map<String, Double>) assayObjects.get("proteinScores");
-            Map<String, String> proteinCategories = (Map<String, String>) assayObjects.get("proteinStatus");
-            Map<String, Boolean> decoyStatus = (Map<String, Boolean>) assayObjects.get("proteinDecoys");
-            Map<String, Set<String>> proteinPTMs = (Map<String, Set<String>>) assayObjects.get("proteinPTMs");
+        System.out.println(proteinsToPsms.keySet());
 
-            System.out.println(proteinsToPsms.keySet());
+        for (String proteinKey: proteinsToPsms.keySet()) {
 
-            for (String proteinKey: proteinsToPsms.keySet()) {
+            String value = df.format(-1 * Math.log10(proteinScores.get(proteinKey)));
+            Param bestSearchEngineScore = new Param(CvTermReference.MS_PIA_PROTEIN_SCORE.getAccession(), CvTermReference.MS_PIA_PROTEIN_SCORE.getName(), value);
 
-                String value = df.format(-1 * Math.log10(proteinScores.get(proteinKey)));
-                Param bestSearchEngineScore = new Param(CvTermReference.MS_PIA_PROTEIN_SCORE.getAccession(), CvTermReference.MS_PIA_PROTEIN_SCORE.getName(), value);
+            Set<PeptideSpectrumOverview> proteinToPsms = new HashSet<>(proteinsToPsms.get(proteinKey));
+            proteinToPsms = proteinToPsms.stream().collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(PeptideSpectrumOverview::getPeptideSequence))),
+                    HashSet::new));
 
-                Set<PeptideSpectrumOverview> proteinToPsms = new HashSet<>(proteinsToPsms.get(proteinKey));
-                proteinToPsms = proteinToPsms.stream().collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(PeptideSpectrumOverview::getPeptideSequence))),
-                HashSet::new));
+            log.info("Protein -- " + proteinKey + " # PSMs -- " + proteinToPsms.size());
 
-                log.info("Protein -- " + proteinKey + " # PSMs -- " + proteinToPsms.size());
+            Set<CvParam> validationMethods = (Set<CvParam>) assayObjects.get("validationMethods");
 
-                Set<CvParam> validationMethods = (Set<CvParam>) assayObjects.get("validationMethods");
+            boolean isValid = true;
 
-                boolean isValid = (boolean) assayObjects.get("isValid");
+            int nPSMs = proteinToPsms.size();
+            int nPeptides = proteinToPsms.stream().map(PeptideSpectrumOverview::getPeptideSequence).collect(Collectors.toSet()).size();
 
-                int nPSMs = proteinToPsms.size();
-                int nPeptides = proteinToPsms.stream().map(PeptideSpectrumOverview::getPeptideSequence).collect(Collectors.toSet()).size();
+            Set<Param> properties = Collections.singleton(new Param("MS:1001600", "protein inference confidence category", proteinCategories.get(proteinKey)));
 
-                Set<Param> properties = Collections.singleton(new Param("MS:1001600", "protein inference confidence category", proteinCategories.get(proteinKey)));
+            ArchiveProteinEvidence proteinEvidence = ArchiveProteinEvidence
+                    .builder()
+                    .reportedAccession(proteinKey)
+                    .modificationsNames(new ArrayList<>(proteinPTMs.get(proteinKey)))
+                    .projectAccession(projectAccession)
+                    .reanalysisAccession(reanalysisAccession)
+                    .assayAccession(fileAccession)
+                    .isValid(isValid)
+                    .numberPeptides(nPeptides)
+                    .numberPSMs(nPSMs)
+                    .properties(properties)
+                    .isDecoy(decoyStatus.get(proteinKey))
+                    .bestSearchEngineScore(bestSearchEngineScore)
+                    .qualityEstimationMethods(validationMethods.stream().map(x -> new Param(x.getAccession(), x.getName(), x.getValue())).collect(Collectors.toSet()))
+                    .psmAccessions(proteinToPsms)
+                    .build();
 
-                ArchiveProteinEvidence proteinEvidence = ArchiveProteinEvidence
-                        .builder()
-                        .reportedAccession(proteinKey)
-                        .modificationsNames(new ArrayList<>(proteinPTMs.get(proteinKey)))
-                        .projectAccession(projectAccession)
-                        .reanalysisAccession(reanalysisAccession)
-                        .assayAccession(fileAccession)
-                        .isValid(isValid)
-                        .numberPeptides(nPeptides)
-                        .numberPSMs(nPSMs)
-                        .properties(properties)
-                        .isDecoy(decoyStatus.get(proteinKey))
-                        .bestSearchEngineScore(bestSearchEngineScore)
-                        .qualityEstimationMethods(validationMethods.stream().map(x -> new Param(x.getAccession(), x.getName(), x.getValue())).collect(Collectors.toSet()))
-                        .psmAccessions(proteinToPsms)
-                        .build();
-
-                            try {
-                                BackupUtil.write(proteinEvidence, (BufferedWriter) assayObjects.get("proteinEvidenceBufferedWriter"));
-                                log.info(String.format("Protein %s -- Number of peptides %s", proteinKey, nPeptides));
-                            }catch (Exception e) {
-                                log.error(e.getMessage(), e);
-                                throw new Exception(e);
-                            }
-                        }
-
-
-
+            try {
+                BackupUtil.write(proteinEvidence, (BufferedWriter) assayObjects.get("proteinEvidenceBufferedWriter"));
+                log.info(String.format("Protein %s -- Number of peptides %s", proteinKey, nPeptides));
+            }catch (Exception e) {
+                log.error(e.getMessage(), e);
+                throw new Exception(e);
+            }
         }
+
     }
 
     private List<String> convertProteinModifications(List<ReportPeptide> peptides) {
