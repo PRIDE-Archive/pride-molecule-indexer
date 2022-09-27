@@ -282,6 +282,10 @@ public class SubmissionPipelineUtils {
         return encodePeptide(sequence, ptms) + "/" + charge;
     }
 
+    public static String removeChargeState(String peptidoform){
+        return peptidoform.substring(0, peptidoform.length() - 1);
+    }
+
     public static String encodePeptide(String sequence, Map<Integer, Modification> ptms) {
         StringBuilder stringBuilder = new StringBuilder();
         String finalSequence = sequence;

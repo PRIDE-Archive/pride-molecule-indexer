@@ -9,10 +9,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.ComponentScan;
-import uk.ac.ebi.pride.archive.indexer.services.PIAAnalysisService;
+import uk.ac.ebi.pride.archive.indexer.services.InferenceService;
+import uk.ac.ebi.pride.archive.indexer.services.PSMClusteringService;
 import uk.ac.ebi.pride.archive.indexer.services.PrideAnalysisAssayService;
 import uk.ac.ebi.pride.archive.indexer.services.ws.PrideArchiveWebService;
-import uk.ac.ebi.pride.archive.indexer.utility.SubmissionPipelineUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -24,10 +24,9 @@ import java.util.stream.Collectors;
 @ComponentScan(basePackages = "uk.ac.ebi.pride.archive.indexer.services")
 public class ArchiveMoleculesIndexer implements ApplicationRunner {
 
-    @Value("${batchCommit}")
-    private int batchComit = 1;
-
-    private final String[] options = {"get-result-files", "get-related-files", "generate-index-files", "perform-inference"};
+    private final String[] options = {"get-result-files", "get-related-files",
+            "generate-index-files", "perform-inference",
+            "generate-mgf-files"};
 
     @Autowired
     private ConfigurableApplicationContext context;
@@ -39,7 +38,10 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
     PrideAnalysisAssayService analysisAssayService;
 
     @Autowired
-    PIAAnalysisService inferenceAnalysisService;
+    InferenceService inferenceAnalysisService;
+
+    @Autowired
+    PSMClusteringService clusteringService;
 
     /**
      * usage outputDirectory filterFile directoryToProcess
@@ -225,27 +227,49 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
                 throw new Exception("The Protein FDR q-value Threshold (default: 0.01): --app.qFilterProteinFDR=0.05");
             }
 
-            List<String> idFiles = args.getOptionValues("app.result-file");
-            if(idFiles == null)
-                idFiles = new ArrayList<>();
-            else
-                idFiles = idFiles
-                        .stream()
-                        .flatMap( x-> Arrays.stream(x.split(",")))
-                        .map(this::cleanFileName)
-                        .filter(x -> (new File(x)).exists())
-                        .collect(Collectors.toList());
-
-            List<String> resultFileOptions = args.getOptionValues("app.mzid-file");
+            List<String> resultFileOptions = args.getOptionValues("app.archive-spectra");
             if(resultFileOptions.size() != 1){
-                throw new Exception("Output File must be provided for inference " +
-                        "perform-inference with parameter --app.mzid-file");
+                throw new Exception("The archive spectra file must be provided --app.archive-spectra");
             }
-            String outpuFile = resultFileOptions.stream()
-                    .map(this::cleanFileName).findAny().get();
 
-            inferenceAnalysisService.performProteinInference(idFiles, SubmissionPipelineUtils.FileType.MZID, outpuFile);
+            List<String> maraClusterOption = args.getOptionValues("app.cluster-file");
+            if(resultFileOptions.size() != 1){
+                throw new Exception("A file containing the clusters of the spectra --app.cluster-file");
+            }
 
+            List<String> outputFolderOption = args.getOptionValues("app.output-folder");
+            if(outputFolderOption == null || outputFolderOption.size() > 1)
+                throw new Exception("Output folder must be specified --app.output-folder");
+
+            List<String> projectAccessionOption = args.getOptionValues("app.project-accession");
+            if(projectAccessionOption.size() != 1){
+                throw new Exception("Project Accession must be only one project --app.project-accession");
+            }
+            String projectAccession = projectAccessionOption.get(0);
+
+            List<String> reanalysisAccessionOption = args.getOptionValues("app.reanalysis-accession");
+            String reanalysisAccession = null;
+            if(reanalysisAccessionOption != null && reanalysisAccessionOption.size() != 0){
+                reanalysisAccession = reanalysisAccessionOption.get(0);
+            }
+            inferenceAnalysisService.performProteinInference(resultFileOptions.get(0), maraClusterOption.get(0), projectAccession,
+                    reanalysisAccession, outputFolderOption.get(0));
+
+        }
+        // Convert pride json files to mgf
+        else if(Objects.equals(command, "generate-mgf-files")){
+
+            List<String> resultFileOptions = args.getOptionValues("app.archive-spectra");
+            if(resultFileOptions.size() != 1){
+                throw new Exception("The archive spectra file must be provided --app.archive-spectra");
+            }
+
+            List<String> outputFileOptions = args.getOptionValues("app.mgf-file");
+            if(resultFileOptions.size() != 1){
+                throw new Exception("The mgf file containing all the spectra --app.mgf-file");
+            }
+
+            clusteringService.convertToMgf(resultFileOptions.get(0), outputFileOptions.get(0));
         }
 
         args.getOptionNames().forEach(optionName -> System.out.println(optionName + "=" + args.getOptionValues(optionName)));

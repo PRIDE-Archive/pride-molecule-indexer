@@ -191,16 +191,12 @@ ch_result_uncompress_process_str.subscribe { println "value-2: $it" }
 process generate_json_index_files{
 
   label 'process_high'
-  publishDir "${params.outdir}", mode: 'copy', pattern: '**_ArchiveSpectrum.json'
 
   input:
-    val(result_id) from ch_final_map
+  val(result_id) from ch_final_map
 
   output:
-    file("**_ArchiveSpectrum.json") optional true into final_batch_json
-    file("**_ArchiveProteinEvidence.json") optional true into final_protein_json, final_protein_json_view
-    file("**_ArchiveSpectrum_Total.json") optional true into final_spectrum_total_json
-    file("**_SummaryArchiveSpectrum.json") optional true into final_summary_json, final_summary_json_view
+  file("**_ArchiveSpectrum_Total.json") optional true into final_spectrum_total_json
 
   script:
   java_mem = "-Xmx" + task.memory.toGiga() + "G"
@@ -209,18 +205,86 @@ process generate_json_index_files{
   """
 }
 
-final_protein_json.collectFile(
+(total_spectrum_file_final, total_spectrum_file) = final_spectrum_total_json.collectFile(
+        name: "${params.project_accession}_ArchiveSpectrum_Total.json",
+        storeDir: "${params.outdir}/${params.project_accession}").into(2)
+
+process convert_to_mgf{
+
+  label 'process_high'
+  publishDir "${params.outdir}/${params.project_accession}", mode: 'copy', pattern: '**.mgf'
+
+  input:
+  file(total_spectra) from total_spectrum_file
+
+  output:
+  file "*.mgf" into mgf_files
+
+  script:
+  java_mem = "-Xmx" + task.memory.toGiga() + "G"
+  """
+  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar generate-mgf-files --app.archive-spectra="${total_spectra}" --app.mgf-file=${params.project_accession}.mgf
+  """
+}
+
+process maracluster_clustering{
+
+  label 'process_high'
+  publishDir "${params.outdir}/${params.project_accession}", mode: 'copy', pattern: '**.tsv'
+
+  if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
+      container "https://containers.biocontainers.pro/s3/SingImgsRepo/maracluster/1.02.1_cv1/maracluster_1.02.1_cv1.sif"
+  } else {
+      container "biocontainers/maracluster:1.02.1_cv1"
+  }
+
+  input:
+  file(total_spectra) from mgf_files
+
+  output:
+  file "maracluster_output/*.clusters_p10.tsv" into maracluster_results
+
+  script:
+  """
+  echo ${total_spectra} > bash_files.txt
+  maracluster batch -b bash_files.txt -t -10 --clusterThresholds -10
+  """
+
+}
+
+process final_inference_after_clustering{
+
+  label 'process_high'
+  publishDir "${params.outdir}", mode: 'copy', pattern: '**_ArchiveSpectrum.json'
+
+  input:
+  file(clustering_file) from maracluster_results
+  file(total_spectrum) from total_spectrum_file_final
+
+  output:
+    file("**_ArchiveSpectrum.json") optional true into final_batch_json_inference
+    file("**_ArchiveProteinEvidence.json") optional true into final_protein_json_inference, final_protein_json_view_inference
+    file("**_ArchiveSpectrum_Total.json") optional true into final_spectrum_total_json_inference
+    file("**_SummaryArchiveSpectrum.json") optional true into final_summary_json_inference, final_summary_json_view_inference
+
+  script:
+  java_mem = "-Xmx" + task.memory.toGiga() + "G"
+  """
+  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar perform-inference --app.output-folder=`pwd` --app.archive-spectra="${total_spectrum}" --app.cluster-file="${clustering_file}" --app.project-accession="${params.project_accession}"
+  """
+}
+
+final_protein_json_inference.collectFile(
         name: "${params.project_accession}_ArchiveProteinEvidence.json",
         storeDir: "${params.outdir}/${params.project_accession}")
 
-final_spectrum_total_json.collectFile(
+final_spectrum_total_json_inference.collectFile(
         name: "${params.project_accession}_ArchiveSpectrum_Total.json",
         storeDir: "${params.outdir}/${params.project_accession}")
 
-final_summary_json.collectFile(
+final_summary_json_inference.collectFile(
         name: "${params.project_accession}_SummaryArchiveSpectrum.json",
         storeDir: "${params.outdir}/${params.project_accession}")
-
 
 //--------------------------------------------------------------- //
 //---------------------- Nextflow specifics --------------------- //
