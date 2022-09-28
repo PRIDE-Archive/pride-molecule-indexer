@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import uk.ac.ebi.pride.archive.dataprovider.param.CvParamProvider;
 
@@ -12,6 +13,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
@@ -53,7 +55,7 @@ public class PrideArchiveWebService {
                     log.error("Connection to pride ws unuseful for project: " + projectAccession);
                     nRetries++;
                 }
-            } catch (URISyntaxException e) {
+            } catch (URISyntaxException | ResourceAccessException e) {
                 log.error("Connection to pride ws unuseful for project: " + projectAccession);
                 nRetries++;
             }
