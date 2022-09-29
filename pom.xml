@@ -40,7 +40,7 @@
         <java.version>1.8</java.version>
         <spring-boot.version>2.7.3</spring-boot.version>
         <uk.ac.ebi.pride.archive.repo.version>1.0.3-SNAPSHOT</uk.ac.ebi.pride.archive.repo.version>
-        <uk.ac.ebi.pride.archive.data-provider.version>1.0.3-SNAPSHOT</uk.ac.ebi.pride.archive.data-provider.version>
+        <uk.ac.ebi.pride.archive.data-provider.version>1.0.4-SNAPSHOT</uk.ac.ebi.pride.archive.data-provider.version>
         <uk.ac.ebi.pride.archive.utilities.version>2.0.19</uk.ac.ebi.pride.archive.utilities.version>
         <uk.ac.ebi.pride.tools-jmzreader.version>2.0.7</uk.ac.ebi.pride.tools-jmzreader.version>
         <maven.test.skip>true</maven.test.skip>
