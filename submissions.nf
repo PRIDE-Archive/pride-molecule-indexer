@@ -196,7 +196,7 @@ process generate_json_index_files{
   val(result_id) from ch_final_map
 
   output:
-  file("**_ArchiveSpectrum_Total.json") optional true into final_spectrum_total_json
+  file("**_ArchiveSpectrum_Total.bjson") optional true into final_spectrum_total_json
 
   script:
   java_mem = "-Xmx" + task.memory.toGiga() + "G"
@@ -206,7 +206,7 @@ process generate_json_index_files{
 }
 
 (total_spectrum_file_final, total_spectrum_file) = final_spectrum_total_json.collectFile(
-        name: "${params.project_accession}_ArchiveSpectrum_Total.json",
+        name: "${params.project_accession}_ArchiveSpectrum_Total.bjson",
         storeDir: "${params.outdir}/${params.project_accession}").into(2)
 
 process convert_to_mgf{
@@ -255,16 +255,16 @@ process maracluster_clustering{
 process final_inference_after_clustering{
 
   label 'process_high'
-  publishDir "${params.outdir}", mode: 'copy', pattern: '**_ArchiveSpectrum.json'
+  publishDir "${params.outdir}", mode: 'copy', pattern: '**_ArchiveSpectrum.bjson'
 
   input:
   file(clustering_file) from maracluster_results
   file(total_spectrum) from total_spectrum_file_final
 
   output:
-    file("**_ArchiveSpectrum.json") optional true into final_batch_json_inference
+    file("**_ArchiveSpectrum.bjson") optional true into final_batch_json_inference
     file("**_ArchiveProteinEvidence.json") optional true into final_protein_json_inference, final_protein_json_view_inference
-    file("**_ArchiveSpectrum_Total.json") optional true into final_spectrum_total_json_inference
+    file("**_ArchiveSpectrum_Total.bjson") optional true into final_spectrum_total_json_inference
     file("**_SummaryArchiveSpectrum.json") optional true into final_summary_json_inference, final_summary_json_view_inference
 
   script:
@@ -279,7 +279,7 @@ final_protein_json_inference.collectFile(
         storeDir: "${params.outdir}/${params.project_accession}")
 
 final_spectrum_total_json_inference.collectFile(
-        name: "${params.project_accession}_ArchiveSpectrum_Total.json",
+        name: "${params.project_accession}_ArchiveSpectrum_nonfiltered_Total.bjson",
         storeDir: "${params.outdir}/${params.project_accession}")
 
 final_summary_json_inference.collectFile(
