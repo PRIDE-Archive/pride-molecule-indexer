@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.module.paranamer.ParanamerModule;
 import uk.ac.ebi.pride.archive.dataprovider.data.spectra.ArchiveSpectrum;
 import uk.ac.ebi.pride.archive.dataprovider.data.protein.ArchiveProteinEvidence;
+import uk.ac.ebi.pride.archive.dataprovider.data.spectra.BinaryArchiveSpectrum;
 import uk.ac.ebi.pride.archive.dataprovider.data.spectra.SummaryArchiveSpectrum;
 
 import java.io.*;
@@ -20,6 +21,11 @@ public class BackupUtil {
     static {
         objectMapper = new ObjectMapper();
         objectMapper.registerModule(new ParanamerModule());
+    }
+
+    public static void write(BinaryArchiveSpectrum spec, BufferedWriter bw) throws IOException {
+        bw.write(BinaryArchiveSpectrum.compress(spec));
+        bw.newLine();
     }
 
     public static void write(Object obj, BufferedWriter bw) throws Exception {

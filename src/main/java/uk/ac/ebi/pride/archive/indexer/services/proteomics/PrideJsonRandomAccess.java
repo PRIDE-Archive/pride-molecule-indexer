@@ -43,7 +43,7 @@ public class PrideJsonRandomAccess {
         long pos = raf.getFilePointer();
 
         while( (line = raf.getNextLine()) != null){
-            BinaryArchiveSpectrum spectrum = objectMapper.readValue(line, BinaryArchiveSpectrum.class);
+            BinaryArchiveSpectrum spectrum = BinaryArchiveSpectrum.decompress(line);
             index.put(spectrum.getUsi(), pos);
             pos = raf.getFilePointer();
         }
@@ -60,7 +60,7 @@ public class PrideJsonRandomAccess {
         if(index.containsKey(usi)){
             long pos = index.get(usi);
             raf.seek(pos);
-            return  objectMapper.readValue(raf.readLine(), BinaryArchiveSpectrum.class);
+            return  BinaryArchiveSpectrum.decompress(raf.readLine());
         }
         return null;
     }
