@@ -25,7 +25,7 @@ public class BackupUtil {
     }
 
     public static void write(BinaryArchiveSpectrum spec, BufferedWriter bw) throws IOException {
-        bw.write(BinaryArchiveSpectrum.compress(spec));
+        bw.write(BinaryArchiveSpectrum.writeJson(spec));
         bw.newLine();
     }
 
