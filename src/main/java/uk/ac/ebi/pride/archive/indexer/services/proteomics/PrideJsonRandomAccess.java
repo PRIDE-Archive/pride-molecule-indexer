@@ -1,6 +1,7 @@
 package uk.ac.ebi.pride.archive.indexer.services.proteomics;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import uk.ac.ebi.pride.archive.dataprovider.data.spectra.ArchiveSpectrum;
 import uk.ac.ebi.pride.archive.dataprovider.data.spectra.BinaryArchiveSpectrum;
 import uk.ac.ebi.pride.tools.braf.BufferedRandomAccessFile;
@@ -17,6 +18,7 @@ import java.util.Set;
  *
  * @author ypriverol
  */
+@Slf4j
 public class PrideJsonRandomAccess {
 
     private final BufferedRandomAccessFile raf;
@@ -43,8 +45,12 @@ public class PrideJsonRandomAccess {
         long pos = raf.getFilePointer();
 
         while( (line = raf.getNextLine()) != null){
-            BinaryArchiveSpectrum spectrum = BinaryArchiveSpectrum.decompress(line);
-            index.put(spectrum.getUsi(), pos);
+            try {
+                BinaryArchiveSpectrum spectrum = BinaryArchiveSpectrum.readJson(line);
+                index.put(spectrum.getUsi(), pos);
+            }catch (Exception e){
+                log.error("Error reading line --- " + line);
+            }
             pos = raf.getFilePointer();
         }
     }
@@ -60,7 +66,11 @@ public class PrideJsonRandomAccess {
         if(index.containsKey(usi)){
             long pos = index.get(usi);
             raf.seek(pos);
-            return  BinaryArchiveSpectrum.decompress(raf.readLine());
+            try {
+                return  BinaryArchiveSpectrum.readJson(raf.readLine());
+            }catch (Exception e){
+                log.error("Error reading usi --- " + usi);
+            }
         }
         return null;
     }
