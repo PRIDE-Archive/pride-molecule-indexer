@@ -567,12 +567,12 @@ public class PrideAnalysisAssayService {
                     if(fileSpectrum != null){
 
                         log.info(fileSpectrum.getId() + " " + (psm.getMassToCharge() - fileSpectrum.getPrecursorMZ()));
-                        Double[] masses = new Double[fileSpectrum.getPeakList().size()];
-                        Double[] intensities = new Double[fileSpectrum.getPeakList().size()];
+                        Float[] masses = new Float[fileSpectrum.getPeakList().size()];
+                        Float[] intensities = new Float[fileSpectrum.getPeakList().size()];
                         int count = 0;
                         for (Map.Entry entry : fileSpectrum.getPeakList().entrySet()) {
-                            masses[count] = (Double) entry.getKey();
-                            intensities[count] = (Double) entry.getValue();
+                            masses[count] = ((Double) entry.getKey()).floatValue();
+                            intensities[count] = ((Double) entry.getValue()).floatValue();
                             count++;
                         }
 
