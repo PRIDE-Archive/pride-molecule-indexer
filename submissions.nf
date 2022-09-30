@@ -196,7 +196,7 @@ process generate_json_index_files{
   val(result_id) from ch_final_map
 
   output:
-  file("**_ArchiveSpectrum_Total_NonFilter.bjson") optional true into final_spectrum_total_json
+  file("**_ArchiveSpectrum_Total.bjson") optional true into final_spectrum_total_json
 
   script:
   java_mem = "-Xmx" + task.memory.toGiga() + "G"
