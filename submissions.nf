@@ -206,7 +206,7 @@ process generate_json_index_files{
 }
 
 (total_spectrum_file_final, total_spectrum_file) = final_spectrum_total_json.collectFile(
-        name: "${params.project_accession}_ArchiveSpectrum_Total.bjson",
+        name: "${params.project_accession}_ArchiveSpectrum_Total_NonFilter.bjson",
         storeDir: "${params.outdir}/${params.project_accession}").into(2)
 
 process convert_to_mgf{
@@ -279,7 +279,7 @@ final_protein_json_inference.collectFile(
         storeDir: "${params.outdir}/${params.project_accession}")
 
 final_spectrum_total_json_inference.collectFile(
-        name: "${params.project_accession}_ArchiveSpectrum_nonfiltered_Total.bjson",
+        name: "${params.project_accession}_ArchiveSpectrum_Total.bjson",
         storeDir: "${params.outdir}/${params.project_accession}")
 
 final_summary_json_inference.collectFile(
