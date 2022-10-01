@@ -2,6 +2,7 @@ package uk.ac.ebi.pride.archive.indexer.services;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import uk.ac.ebi.pride.archive.dataprovider.data.spectra.BinaryArchiveSpectrum;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.MGFPRIDEWriter;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.PrideJsonRandomAccess;
 
@@ -24,9 +25,12 @@ public class PSMClusteringService {
             pridePSMJsonReader.parseIndex();
             OutputStream outputStream       = Files.newOutputStream((new File(mgfOutputFile)).toPath());
             OutputStreamWriter outputStreamWriter = new OutputStreamWriter(outputStream);
-            for(String usi: pridePSMJsonReader.getKeys())
-                MGFPRIDEWriter.appendSpectrum(outputStreamWriter, pridePSMJsonReader.readArchiveSpectrum(usi));
 
+            for(String usi: pridePSMJsonReader.getKeys()) {
+                BinaryArchiveSpectrum spec = pridePSMJsonReader.readArchiveSpectrum(usi);
+                if (spec != null)
+                    MGFPRIDEWriter.appendSpectrum(outputStreamWriter, spec);
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

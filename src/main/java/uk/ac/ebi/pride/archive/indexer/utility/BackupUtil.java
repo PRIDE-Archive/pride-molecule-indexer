@@ -24,10 +24,22 @@ public class BackupUtil {
         objectMapper.registerModule(new ParanamerModule());
     }
 
-    public static void write(BinaryArchiveSpectrum spec, BufferedWriter bw) throws IOException {
+    public static void writeBinarySpectrum(BinaryArchiveSpectrum spec, BufferedWriter bw) throws IOException {
+        // This step has been added to do not export orginally spectra that can be binary
+        try{
+            String binaryLine = BinaryArchiveSpectrum.writeJson(spec);
+            BinaryArchiveSpectrum binSpectrumCheck = BinaryArchiveSpectrum.readJson(binaryLine);
+            if(binSpectrumCheck == null || binSpectrumCheck.getMasses().length == 0 || binSpectrumCheck.getIntensities().length == 0)
+                throw new Exception(String.format("Error with spectrum -- %s", spec.toString()));
+        }catch (Exception e){
+            System.err.printf("Spectrum -- %s has an error%n", spec.toString());
+        }
         bw.write(BinaryArchiveSpectrum.writeJson(spec));
+
         bw.newLine();
     }
+
+
 
     public static void write(Object obj, BufferedWriter bw) throws Exception {
         String s = objectMapper.writeValueAsString(obj);
