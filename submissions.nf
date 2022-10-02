@@ -260,12 +260,12 @@ process maracluster_clustering{
   file(total_spectra) from mgf_files
 
   output:
-  file "maracluster_output/*.clusters_p10.tsv" into maracluster_results
+  file "maracluster_output/*.clusters_p${params.clusterpvalue}.tsv" into maracluster_results
 
   script:
   """
   echo ${total_spectra} > bash_files.txt
-  maracluster batch -b bash_files.txt -t -10 --clusterThresholds -10
+  maracluster batch -b bash_files.txt
   """
 
 }
