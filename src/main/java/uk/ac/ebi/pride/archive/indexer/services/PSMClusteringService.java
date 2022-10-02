@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import uk.ac.ebi.pride.archive.dataprovider.data.spectra.BinaryArchiveSpectrum;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.MGFPRIDEWriter;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.PrideJsonRandomAccess;
+import uk.ac.ebi.pride.archive.indexer.utility.BackupUtil;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -70,5 +71,23 @@ public class PSMClusteringService {
             }
         }
         return clusters;
+    }
+
+    public void validateJsonFile(String spectraArchiveFile, String validatedArchiveFile) {
+        try {
+            PrideJsonRandomAccess pridePSMJsonReader = new PrideJsonRandomAccess(spectraArchiveFile);
+            pridePSMJsonReader.parseIndex();
+
+            BufferedWriter bw = new BufferedWriter(new FileWriter(validatedArchiveFile, false));
+
+            for(String usi: pridePSMJsonReader.getKeys()) {
+                BinaryArchiveSpectrum spec = pridePSMJsonReader.readArchiveSpectrum(usi);
+                if (spec != null){
+                    BackupUtil.write(spec, bw);
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

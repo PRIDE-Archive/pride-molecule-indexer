@@ -205,9 +205,27 @@ process generate_json_index_files{
   """
 }
 
-(total_spectrum_file_final, total_spectrum_file) = final_spectrum_total_json.collectFile(
+total_spectrum_file = final_spectrum_total_json.collectFile(
         name: "${params.project_accession}_ArchiveSpectrum_Total_NonFilter.bjson",
-        storeDir: "${params.outdir}/${params.project_accession}").into(2)
+        storeDir: "${params.outdir}/${params.project_accession}")
+
+process json_check_validator{
+
+  label 'process_high'
+  publishDir "${params.outdir}/${params.project_accession}", mode: 'copy', pattern: '**.bjson'
+
+  input:
+  file(result_id) from total_spectrum_file
+
+  output:
+  file("**_ArchiveSpectrum_Total_NonFilter_Validated.bjson") into final_spectrum_total_validated_json, total_spectrum_file_final
+
+  script:
+  java_mem = "-Xmx" + task.memory.toGiga() + "G"
+  """
+  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar spectra-json-check --app.archive-spectra="${result_id}" --app.validated-spectra="${result_id.baseName}_Validated.bjson"
+  """
+}
 
 process convert_to_mgf{
 
@@ -215,7 +233,7 @@ process convert_to_mgf{
   publishDir "${params.outdir}/${params.project_accession}", mode: 'copy', pattern: '**.mgf'
 
   input:
-  file(total_spectra) from total_spectrum_file
+  file(total_spectra) from final_spectrum_total_validated_json
 
   output:
   file "*.mgf" into mgf_files
