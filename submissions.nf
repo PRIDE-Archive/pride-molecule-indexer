@@ -212,6 +212,7 @@ total_spectrum_file = final_spectrum_total_json.collectFile(
 process json_check_validator{
 
   label 'process_high'
+  publishDir "${params.outdir}/${params.project_accession}", mode: 'copy', pattern: '**.bjson'
 
   input:
   file(result_id) from total_spectrum_file
