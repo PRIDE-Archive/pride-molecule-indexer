@@ -26,7 +26,7 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
 
     private final String[] options = {"get-result-files", "get-related-files",
             "generate-index-files", "perform-inference",
-            "generate-mgf-files"};
+            "generate-mgf-files" , "spectra-json-check"};
 
     @Autowired
     private ConfigurableApplicationContext context;
@@ -270,6 +270,20 @@ public class ArchiveMoleculesIndexer implements ApplicationRunner {
             }
 
             clusteringService.convertToMgf(resultFileOptions.get(0), outputFileOptions.get(0));
+        }
+        else if(Objects.equals(command, "spectra-json-check")){
+
+            List<String> resultFileOptions = args.getOptionValues("app.archive-spectra");
+            if(resultFileOptions.size() != 1){
+                throw new Exception("The archive spectra file must be provided --app.archive-spectra");
+            }
+
+            List<String> outputFileOptions = args.getOptionValues("app.validated-spectra");
+            if(resultFileOptions.size() != 1){
+                throw new Exception("The mgf file containing all the spectra --app.validated-spectra");
+            }
+
+            clusteringService.validateJsonFile(resultFileOptions.get(0), outputFileOptions.get(0));
         }
 
         args.getOptionNames().forEach(optionName -> System.out.println(optionName + "=" + args.getOptionValues(optionName)));

@@ -3,8 +3,6 @@
 **PRIDE Archive nextflow molecules indexer pipeline for complete submission submissions**.
 
 [![install with conda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg)](https://bioconda.github.io/)
-[![Docker](https://img.shields.io/docker/automated/nfcore/proteomicslfq.svg)](https://hub.docker.com/r/nfcore/proteomicslfq)
-[![Get help on Slack](http://img.shields.io/badge/slack-nf--core%20%23proteomicslfq-4A154B?logo=slack)](https://nfcore.slack.com/channels/proteomicslfq)
 
 ## Introduction
 
@@ -22,7 +20,7 @@ The pipeline is built using [Nextflow](https://www.nextflow.io), a workflow tool
      nextflow run main.nf -c nextflow.config -profile ebitools --project_accession PXD004016
     ```
 
-See [usage docs](https://nf-co.re/proteomicslfq/usage) for all of the available options when running the pipeline. Or configure the pipeline via
+See [usage docs](https://nf-co.re/proteomicslfq/usage) for all the available options when running the pipeline. Or configure the pipeline via
 [nf-core launch](https://nf-co.re/launch) from the web or the command line.
 
 ## Pipeline Summary
