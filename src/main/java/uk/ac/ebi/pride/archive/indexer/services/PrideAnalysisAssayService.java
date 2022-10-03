@@ -291,6 +291,15 @@ public class PrideAnalysisAssayService {
                 throw new RuntimeException(e);
             }
         }
+        if(assayObjectMap != null){
+            for(Object object: assayObjectMap.values()){
+                if (object instanceof BufferedWriter){
+                    BufferedWriter bufferedWriter = (BufferedWriter) object;
+                    bufferedWriter.flush();
+                    bufferedWriter.close();
+                }
+            }
+        }
     }
 
 

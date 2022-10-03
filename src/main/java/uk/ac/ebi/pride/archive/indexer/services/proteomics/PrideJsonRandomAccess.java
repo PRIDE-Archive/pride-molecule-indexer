@@ -90,4 +90,8 @@ public class PrideJsonRandomAccess {
     public Set<String> getKeys(){
         return index.keySet();
     }
+
+    public void close() throws IOException {
+        raf.close();
+    }
 }
