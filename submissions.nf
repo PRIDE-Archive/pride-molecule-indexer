@@ -196,7 +196,7 @@ process generate_json_index_files{
   val(result_id) from ch_final_map
 
   output:
-  file("**_ArchiveSpectrum_Total.bjson") optional true into final_spectrum_total_json
+  file("**_ArchiveSpectrum_Total.json") optional true into final_spectrum_total_json
 
   script:
   java_mem = "-Xmx" + task.memory.toGiga() + "G"
@@ -206,24 +206,24 @@ process generate_json_index_files{
 }
 
 total_spectrum_file = final_spectrum_total_json.collectFile(
-        name: "${params.project_accession}_ArchiveSpectrum_Total_NonFilter.bjson",
+        name: "${params.project_accession}_ArchiveSpectrum_Total_NonFilter.json",
         storeDir: "${params.outdir}/${params.project_accession}")
 
 process json_check_validator{
 
   label 'process_high'
-  publishDir "${params.outdir}/${params.project_accession}", mode: 'copy', pattern: '**.bjson'
+  publishDir "${params.outdir}/${params.project_accession}", mode: 'copy', pattern: '**.json'
 
   input:
   file(result_id) from total_spectrum_file
 
   output:
-  file("**_ArchiveSpectrum_Total_NonFilter_Validated.bjson") into final_spectrum_total_validated_json, total_spectrum_file_final
+  file("**_ArchiveSpectrum_Total_NonFilter_Validated.json") into final_spectrum_total_validated_json, total_spectrum_file_final
 
   script:
   java_mem = "-Xmx" + task.memory.toGiga() + "G"
   """
-  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar spectra-json-check --app.archive-spectra="${result_id}" --app.validated-spectra="${result_id.baseName}_Validated.bjson"
+  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar spectra-json-check --app.archive-spectra="${result_id}" --app.validated-spectra="${result_id.baseName}_Validated.json"
   """
 }
 
@@ -273,16 +273,16 @@ process maracluster_clustering{
 process final_inference_after_clustering{
 
   label 'process_high'
-  publishDir "${params.outdir}", mode: 'copy', pattern: '**_ArchiveSpectrum.bjson'
+  publishDir "${params.outdir}", mode: 'copy', pattern: '**_ArchiveSpectrum.json'
 
   input:
   file(clustering_file) from maracluster_results
   file(total_spectrum) from total_spectrum_file_final
 
   output:
-    file("**_ArchiveSpectrum.bjson") optional true into final_batch_json_inference
+    file("**_ArchiveSpectrum.json") optional true into final_batch_json_inference
     file("**_ArchiveProteinEvidence.json") optional true into final_protein_json_inference, final_protein_json_view_inference
-    file("**_ArchiveSpectrum_Total.bjson") optional true into final_spectrum_total_json_inference
+    file("**_ArchiveSpectrum_Total.json") optional true into final_spectrum_total_json_inference
     file("**_SummaryArchiveSpectrum.json") optional true into final_summary_json_inference, final_summary_json_view_inference
 
   script:
@@ -297,7 +297,7 @@ final_protein_json_inference.collectFile(
         storeDir: "${params.outdir}/${params.project_accession}")
 
 final_spectrum_total_json_inference.collectFile(
-        name: "${params.project_accession}_ArchiveSpectrum_Total.bjson",
+        name: "${params.project_accession}_ArchiveSpectrum_Total.json",
         storeDir: "${params.outdir}/${params.project_accession}")
 
 final_summary_json_inference.collectFile(
