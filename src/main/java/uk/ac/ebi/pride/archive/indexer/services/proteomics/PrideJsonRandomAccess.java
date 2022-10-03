@@ -2,14 +2,14 @@ package uk.ac.ebi.pride.archive.indexer.services.proteomics;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.ehcache.Cache;
 import uk.ac.ebi.pride.archive.dataprovider.data.spectra.ArchiveSpectrum;
 import uk.ac.ebi.pride.archive.dataprovider.data.spectra.BinaryArchiveSpectrum;
+import uk.ac.ebi.pride.archive.indexer.utility.AppCacheManager;
 import uk.ac.ebi.pride.tools.braf.BufferedRandomAccessFile;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.Iterator;
 
 /**
  * {@link PrideJsonRandomAccess} is a reader of the
@@ -23,12 +23,13 @@ public class PrideJsonRandomAccess {
 
     private final BufferedRandomAccessFile raf;
 
-    private final Map<String, Long> index;
+    private final Cache<String, Long> index;
     private final ObjectMapper objectMapper;
 
     public PrideJsonRandomAccess(String fileAbsolutePath) throws IOException {
         this.raf = new BufferedRandomAccessFile(fileAbsolutePath, "r", 1024 * 100);
-        this.index = new HashMap<>();
+        AppCacheManager appCacheManager = AppCacheManager.getInstance();
+        this.index = appCacheManager.getPrideJsonSpectra();
         this.objectMapper = new ObjectMapper();
     }
 
@@ -76,19 +77,12 @@ public class PrideJsonRandomAccess {
     }
 
     /**
-     * GEt the number of spectra in the {@link ArchiveSpectrum} json file.
-     * @return total number fo spectra
-     */
-    public int getNumArchiveSpectra(){
-        return index.size();
-    }
-
-    /**
      * Return all the spectra from the Json file
+     *
      * @return List of usis
      */
-    public Set<String> getKeys(){
-        return index.keySet();
+    public Iterator<Cache.Entry<String, Long>> getKeys(){
+        return index.iterator();
     }
 
     public void close() throws IOException {
