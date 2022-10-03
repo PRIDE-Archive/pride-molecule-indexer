@@ -1,6 +1,7 @@
 package uk.ac.ebi.pride.archive.indexer.services;
 
 import lombok.extern.slf4j.Slf4j;
+import org.ehcache.Cache;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -13,6 +14,7 @@ import uk.ac.ebi.pride.archive.dataprovider.data.spectra.SummaryArchiveSpectrum;
 import uk.ac.ebi.pride.archive.dataprovider.param.CvParam;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.PIAModelerService;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.PrideJsonRandomAccess;
+import uk.ac.ebi.pride.archive.indexer.utility.AppCacheManager;
 import uk.ac.ebi.pride.archive.indexer.utility.BackupUtil;
 import uk.ac.ebi.pride.archive.indexer.utility.HashUtils;
 import uk.ac.ebi.pride.archive.indexer.utility.SubmissionPipelineUtils;
@@ -20,7 +22,6 @@ import uk.ac.ebi.pride.utilities.term.CvTermReference;
 
 import java.io.*;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static uk.ac.ebi.pride.archive.indexer.services.PrideAnalysisAssayService.createBackupDir;
@@ -85,19 +86,22 @@ public class InferenceService {
     public void performProteinInference(String pridePSMPath, String maraclusterResultsPath, String projectAccession,
                                         String reanalysisAccession, String folderOutput) throws Exception {
 
+        AppCacheManager appCacheManager = AppCacheManager.getInstance();
+
         PrideJsonRandomAccess pridePSMJsonReader = new PrideJsonRandomAccess(pridePSMPath);
         pridePSMJsonReader.parseIndex();
 
         //The index of the spectrum in the reader is the same (0-based) than the key in the cluster map
-        Map<Integer, Integer> clusters = clusterService.readMaraClusterResults(maraclusterResultsPath);
+        Cache<Integer, Integer> clusters = clusterService.readMaraClusterResults(maraclusterResultsPath);
 
-        if(clusters.size() != pridePSMJsonReader.getKeys().size())
-            throw new Exception(String.format("The number of spectra in the cluster file (%s) is different than the " +
-                    "number of spectra in the json file (%s)", clusters.size(), pridePSMJsonReader.getKeys().size()));
+//        if(clusters.size() != pridePSMJsonReader.getKeys().size())
+//            throw new Exception(String.format("The number of spectra in the cluster file (%s) is different than the " +
+//                    "number of spectra in the json file (%s)", clusters.size(), pridePSMJsonReader.getKeys().size()));
 
         Map<Integer, List<Triple<String, PeptidoformClustered, Double>>> clusterScores = new HashMap<>();
         int index = 0;
-        for(String usi: pridePSMJsonReader.getKeys()){
+        for (Iterator<Cache.Entry<String, Long>> it = pridePSMJsonReader.getKeys(); it.hasNext(); ) {
+            String usi = it.next().getKey();
             BinaryArchiveSpectrum spectrum = pridePSMJsonReader.readArchiveSpectrum(usi);
             Double pcmScore = Double.parseDouble(spectrum.getBestSearchEngineScore().getValue());
             Integer clusterId = clusters.get(index);
@@ -141,9 +145,8 @@ public class InferenceService {
         Map<String, Object> assayObjects = new HashMap<>();
         createBackupFiles(assayObjects, folderOutput, projectAccession, hashAssay);
 
-        Map<String, List<PeptideSpectrumOverview>> proteinToPsms = new HashMap<>();
-
-        Map<String, List<uk.ac.ebi.pride.archive.dataprovider.common.Triple<String, Double,String>>> proteinsPSMsScores = new HashMap<>();
+        Cache<String, List<PeptideSpectrumOverview>> proteinToPsms = (Cache<String, List<PeptideSpectrumOverview>>) appCacheManager.getProteinToPsmsCache();
+        Map<String, List<Triple<String, Double,String>>> proteinsPSMsScores = new HashMap<>();
         Map<String, List<String>> peptideToProteins = new HashMap<>();
         Map<String, Set<String>> proteinPTMs = new HashMap<>();
         Map<String, List<Boolean>> proteinDecoys = new HashMap<>();
@@ -263,13 +266,11 @@ public class InferenceService {
         PrideAnalysisAssayService.proteinIndexStep(hashAssay, assayObjects, projectAccession, reanalysisAccession);
         System.out.println(clusterScores.size());
 
-        if(assayObjects != null){
-            for(Object object: assayObjects.values()){
-                if (object instanceof BufferedWriter){
-                    BufferedWriter bufferedWriter = (BufferedWriter) object;
-                    bufferedWriter.flush();
-                    bufferedWriter.close();
-                }
+        for(Object object: assayObjects.values()){
+            if (object instanceof BufferedWriter){
+                BufferedWriter bufferedWriter = (BufferedWriter) object;
+                bufferedWriter.flush();
+                bufferedWriter.close();
             }
         }
 

@@ -7,7 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
 import uk.ac.ebi.jmzidml.model.mzidml.FileFormat;
 import uk.ac.ebi.jmzidml.model.mzidml.SpectraData;
-import uk.ac.ebi.pride.utilities.util.Triple;
+import uk.ac.ebi.pride.archive.dataprovider.common.Triple;
 
 import java.io.*;
 import java.math.BigDecimal;

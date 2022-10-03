@@ -1,15 +1,18 @@
 package uk.ac.ebi.pride.archive.indexer.services;
 
 import lombok.extern.slf4j.Slf4j;
+import org.ehcache.Cache;
 import org.springframework.stereotype.Service;
 import uk.ac.ebi.pride.archive.dataprovider.data.spectra.BinaryArchiveSpectrum;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.MGFPRIDEWriter;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.PrideJsonRandomAccess;
+import uk.ac.ebi.pride.archive.indexer.utility.AppCacheManager;
 import uk.ac.ebi.pride.archive.indexer.utility.BackupUtil;
 
 import java.io.*;
 import java.nio.file.Files;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 @Slf4j
@@ -26,7 +29,8 @@ public class PSMClusteringService {
             OutputStream outputStream       = Files.newOutputStream((new File(mgfOutputFile)).toPath());
             OutputStreamWriter outputStreamWriter = new OutputStreamWriter(outputStream);
 
-            for(String usi: pridePSMJsonReader.getKeys()) {
+            for (Iterator<Cache.Entry<String, Long>> it = pridePSMJsonReader.getKeys(); it.hasNext(); ) {
+                String usi = it.next().getKey();
                 BinaryArchiveSpectrum spec = pridePSMJsonReader.readArchiveSpectrum(usi);
                 if (spec != null)
                     MGFPRIDEWriter.appendSpectrum(outputStreamWriter, spec);
@@ -50,13 +54,15 @@ public class PSMClusteringService {
      * @return Map with the index of the spectrum and the cluster index.
      * @throws Exception
      */
-    public Map<Integer, Integer> readMaraClusterResults(String maraClusterFile) throws Exception {
+    public Cache<Integer, Integer> readMaraClusterResults(String maraClusterFile) throws Exception {
+
+        AppCacheManager cacheManager = AppCacheManager.getInstance();
 
         InputStream in = Files.newInputStream(new File(maraClusterFile).toPath());
         BufferedReader br = new BufferedReader(new InputStreamReader(in));
 
         // Clusters result will be an index of the spectrum in the pride file and the cluster where it belongs to.
-        Map<Integer, Integer> clusters = new HashMap<>();
+        Cache<Integer, Integer> clusters = cacheManager.getClustersCache();
         String line;
         while ((line = br.readLine()) != null) {
             if(!line.trim().isEmpty()){
@@ -82,7 +88,8 @@ public class PSMClusteringService {
 
             BufferedWriter bw = new BufferedWriter(new FileWriter(validatedArchiveFile, false));
 
-            for(String usi: pridePSMJsonReader.getKeys()) {
+            for (Iterator<Cache.Entry<String, Long>> it = pridePSMJsonReader.getKeys(); it.hasNext(); ) {
+                String usi = it.next().getKey();
                 BinaryArchiveSpectrum spec = pridePSMJsonReader.readArchiveSpectrum(usi);
                 if (spec != null){
                     BackupUtil.write(spec, bw);

@@ -17,6 +17,7 @@ import de.mpc.pia.tools.obo.OboMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
 import org.biojava.nbio.ontology.Term;
+import org.ehcache.Cache;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -24,6 +25,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
 import uk.ac.ebi.jmzidml.model.mzidml.AbstractParam;
 import uk.ac.ebi.jmzidml.model.mzidml.SpectraData;
+import uk.ac.ebi.pride.archive.dataprovider.common.Triple;
 import uk.ac.ebi.pride.archive.dataprovider.common.Tuple;
 import uk.ac.ebi.pride.archive.dataprovider.data.protein.PeptideSpectrumOverview;
 import uk.ac.ebi.pride.archive.dataprovider.data.ptm.IdentifiedModification;
@@ -34,6 +36,7 @@ import uk.ac.ebi.pride.archive.dataprovider.param.CvParamProvider;
 import uk.ac.ebi.pride.archive.dataprovider.data.protein.ArchiveProteinEvidence;
 import uk.ac.ebi.pride.archive.dataprovider.data.spectra.SummaryArchiveSpectrum;
 import uk.ac.ebi.pride.archive.dataprovider.param.Param;
+import uk.ac.ebi.pride.archive.indexer.utility.AppCacheManager;
 import uk.ac.ebi.pride.archive.indexer.utility.HashUtils;
 import uk.ac.ebi.pride.archive.indexer.utility.SubmissionPipelineUtils;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.JmzReaderSpectrumService;
@@ -46,7 +49,6 @@ import uk.ac.ebi.pride.tools.jmzreader.JMzReaderException;
 import uk.ac.ebi.pride.tools.jmzreader.model.Spectrum;
 import uk.ac.ebi.pride.utilities.term.CvTermReference;
 import uk.ac.ebi.pride.utilities.util.MoleculeUtilities;
-import uk.ac.ebi.pride.utilities.util.Triple;
 
 import java.io.*;
 import java.nio.file.AccessDeniedException;
@@ -491,6 +493,7 @@ public class PrideAnalysisAssayService {
 
         long initSpectraStep = System.currentTimeMillis();
         log.info("indexSpectraStep assay file  -- " + assayObjects.get("modeller").toString());
+        AppCacheManager appCacheManager = AppCacheManager.getInstance();
 
         List<ReportPSM> psms = (List<ReportPSM>) assayObjects.get("psms");
         List<ReportProtein> proteins = (List<ReportProtein>) assayObjects.get("proteins");
@@ -509,7 +512,7 @@ public class PrideAnalysisAssayService {
             AtomicInteger totalPSM = new AtomicInteger();
             AtomicInteger errorDeltaPSM = new AtomicInteger();
 
-            List<uk.ac.ebi.pride.utilities.util.Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> relatedFiles;
+            List<Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> relatedFiles;
             relatedFiles = getRelatedFiles(spectrumFiles, spectraFiles);
             if (spectrumFiles.size() == 0) {
                     throw new Exception("No spectra file found");
@@ -520,9 +523,9 @@ public class PrideAnalysisAssayService {
             );
 
             JmzReaderSpectrumService finalService = service;
-            Map<String, List<PeptideSpectrumOverview>> proteinToPsms = new HashMap<>();
+            Cache<String, List<PeptideSpectrumOverview>> proteinToPsms = (Cache<String, List<PeptideSpectrumOverview>>) appCacheManager.getProteinToPsmsCache();
 
-            Map<String, List<uk.ac.ebi.pride.archive.dataprovider.common.Triple<String, Double,String>>> proteinsPSMsScores = new HashMap<>();
+            Map<String, List<Triple<String, Double,String>>> proteinsPSMsScores = new HashMap<>();
             Map<String, List<String>> peptideToProteins = new HashMap<>();
             Map<String, Set<String>> proteinPTMs = new HashMap<>();
             Map<String, List<Boolean>> proteinDecoys = new HashMap<>();
@@ -787,13 +790,13 @@ public class PrideAnalysisAssayService {
                                 proteinToPsms.put(x.getAccession(), usis);
                             }
                             //Get the protein Score
-                            List<uk.ac.ebi.pride.archive.dataprovider.common.Triple<String, Double,String>> pcms = new ArrayList<>();
+                            List<Triple<String, Double,String>> pcms = new ArrayList<>();
                             Double pcmScore = Double.valueOf(archivePSM.getBestSearchEngineScore().getValue());
 
                             if(proteinsPSMsScores.containsKey(x.getAccession())){
                                 pcms = proteinsPSMsScores.get(x.getAccession());
                             }
-                            pcms.add(new uk.ac.ebi.pride.archive.dataprovider.common.Triple<>(archivePSM.getPeptidoform(), pcmScore, archivePSM.getUsi()));
+                            pcms.add(new Triple<>(archivePSM.getPeptidoform(), pcmScore, archivePSM.getUsi()));
                             proteinsPSMsScores.put(x.getAccession(), pcms);
 
                             // Get protein uniqueness
@@ -862,7 +865,7 @@ public class PrideAnalysisAssayService {
      * @param spectraFiles List of files provided by the users
      * @return List of Tuple files.
      */
-    private List<uk.ac.ebi.pride.utilities.util.Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> getRelatedFiles(List<SpectraData> spectraDataFiles, Set<String> spectraFiles) throws IOException {
+    private List<Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> getRelatedFiles(List<SpectraData> spectraDataFiles, Set<String> spectraFiles) throws IOException {
 
         if(Objects.isNull(spectraDataFiles) || Objects.isNull(spectraFiles) || spectraDataFiles.size() == 0 || spectraFiles.size() == 0){
             System.out.println(spectraFiles);
@@ -870,7 +873,7 @@ public class PrideAnalysisAssayService {
             throw new IOException("The number of files provided and SpectraData referenced in the result files are different");
         }
 
-        List<uk.ac.ebi.pride.utilities.util.Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> files = spectraDataFiles.stream().map( x-> {
+        List<Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> files = spectraDataFiles.stream().map( x-> {
             for(String filePath: spectraFiles){
                 String xFileName = FilenameUtils.getName(filePath);
                 String spectraFileName = x.getLocation();
@@ -881,7 +884,7 @@ public class PrideAnalysisAssayService {
                 if(xFileName.equalsIgnoreCase(spectraDataFileName)){
                     SubmissionPipelineUtils.FileType fileType = SubmissionPipelineUtils.FileType.getFileTypeFromFileName(xFileName);
                     if(fileType != null)
-                        return new uk.ac.ebi.pride.utilities.util.Triple<>(filePath, x, fileType);
+                        return new Triple<>(filePath, x, fileType);
                 }
             }
             return null;
@@ -935,23 +938,24 @@ public class PrideAnalysisAssayService {
 
     public static void proteinIndexStep(String fileAccession, Map<String, Object> assayObjects, String projectAccession, String reanalysisAccession) throws Exception {
 
-        Map<String, List<PeptideSpectrumOverview>> proteinsToPsms = (Map<String, List<PeptideSpectrumOverview>>) assayObjects.get("proteinToPsms");
+        Cache<String, List<PeptideSpectrumOverview>> proteinsToPsms = (Cache<String, List<PeptideSpectrumOverview>>) assayObjects.get("proteinToPsms");
         Map<String, Double> proteinScores = (Map<String, Double>) assayObjects.get("proteinScores");
         Map<String, String> proteinCategories = (Map<String, String>) assayObjects.get("proteinStatus");
         Map<String, Boolean> decoyStatus = (Map<String, Boolean>) assayObjects.get("proteinDecoys");Map<String, Set<String>> proteinPTMs = (Map<String, Set<String>>) assayObjects.get("proteinPTMs");
 
-        System.out.println(proteinsToPsms.keySet());
+        for (Iterator<Cache.Entry<String, List<PeptideSpectrumOverview>>> it = proteinsToPsms.iterator(); it.hasNext(); ) {
 
-        for (String proteinKey: proteinsToPsms.keySet()) {
+            Cache.Entry<String, List<PeptideSpectrumOverview>> entry = it.next();
+            Set<PeptideSpectrumOverview> proteinToPsms = new HashSet<>(entry.getValue());
 
-            String value = df.format(-1 * Math.log10(proteinScores.get(proteinKey)));
+            String value = df.format(-1 * Math.log10(proteinScores.get(entry.getKey())));
             Param bestSearchEngineScore = new Param(CvTermReference.MS_PIA_PROTEIN_SCORE.getAccession(), CvTermReference.MS_PIA_PROTEIN_SCORE.getName(), value);
 
-            Set<PeptideSpectrumOverview> proteinToPsms = new HashSet<>(proteinsToPsms.get(proteinKey));
+
             proteinToPsms = proteinToPsms.stream().collect(Collectors.collectingAndThen(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(PeptideSpectrumOverview::getPeptideSequence))),
                     HashSet::new));
 
-            log.info("Protein -- " + proteinKey + " # PSMs -- " + proteinToPsms.size());
+            log.info("Protein -- " + entry.getKey() + " # PSMs -- " + proteinToPsms.size());
 
             Set<CvParam> validationMethods = (Set<CvParam>) assayObjects.get("validationMethods");
 
@@ -960,12 +964,12 @@ public class PrideAnalysisAssayService {
             int nPSMs = proteinToPsms.size();
             int nPeptides = proteinToPsms.stream().map(PeptideSpectrumOverview::getPeptideSequence).collect(Collectors.toSet()).size();
 
-            Set<Param> properties = Collections.singleton(new Param("MS:1001600", "protein inference confidence category", proteinCategories.get(proteinKey)));
+            Set<Param> properties = Collections.singleton(new Param("MS:1001600", "protein inference confidence category", proteinCategories.get(entry.getKey())));
 
             ArchiveProteinEvidence proteinEvidence = ArchiveProteinEvidence
                     .builder()
-                    .reportedAccession(proteinKey)
-                    .modificationsNames(new ArrayList<>(proteinPTMs.get(proteinKey)))
+                    .reportedAccession(entry.getKey())
+                    .modificationsNames(new ArrayList<>(proteinPTMs.get(entry.getKey())))
                     .projectAccession(projectAccession)
                     .reanalysisAccession(reanalysisAccession)
                     .assayAccession(fileAccession)
@@ -973,7 +977,7 @@ public class PrideAnalysisAssayService {
                     .numberPeptides(nPeptides)
                     .numberPSMs(nPSMs)
                     .properties(properties)
-                    .isDecoy(decoyStatus.get(proteinKey))
+                    .isDecoy(decoyStatus.get(entry.getKey()))
                     .bestSearchEngineScore(bestSearchEngineScore)
                     .qualityEstimationMethods(validationMethods.stream().map(x -> new Param(x.getAccession(), x.getName(), x.getValue())).collect(Collectors.toSet()))
                     .psmAccessions(proteinToPsms)
@@ -981,7 +985,7 @@ public class PrideAnalysisAssayService {
 
             try {
                 BackupUtil.write(proteinEvidence, (BufferedWriter) assayObjects.get("proteinEvidenceBufferedWriter"));
-                log.info(String.format("Protein %s -- Number of peptides %s", proteinKey, nPeptides));
+                log.info(String.format("Protein %s -- Number of peptides %s", entry.getKey(), nPeptides));
             }catch (Exception e) {
                 log.error(e.getMessage(), e);
                 throw new Exception(e);
