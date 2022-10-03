@@ -9,7 +9,6 @@ import uk.ac.ebi.pride.archive.indexer.utility.BackupUtil;
 
 import java.io.*;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -32,6 +31,9 @@ public class PSMClusteringService {
                 if (spec != null)
                     MGFPRIDEWriter.appendSpectrum(outputStreamWriter, spec);
             }
+            outputStreamWriter.flush();
+            outputStreamWriter.close();
+            pridePSMJsonReader.close();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -86,6 +88,8 @@ public class PSMClusteringService {
                     BackupUtil.write(spec, bw);
                 }
             }
+            bw.flush();
+            bw.close();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

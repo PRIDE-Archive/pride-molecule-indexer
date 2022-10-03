@@ -39,8 +39,6 @@ public class BackupUtil {
         bw.newLine();
     }
 
-
-
     public static void write(Object obj, BufferedWriter bw) throws Exception {
         String s = objectMapper.writeValueAsString(obj);
         bw.write(s);

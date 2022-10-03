@@ -1,6 +1,5 @@
 package uk.ac.ebi.pride.archive.indexer.services;
 
-import de.mpc.pia.intermediate.Accession;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -8,12 +7,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
 import uk.ac.ebi.pride.archive.dataprovider.common.Triple;
-import uk.ac.ebi.pride.archive.dataprovider.common.Tuple;
 import uk.ac.ebi.pride.archive.dataprovider.data.protein.PeptideSpectrumOverview;
 import uk.ac.ebi.pride.archive.dataprovider.data.spectra.BinaryArchiveSpectrum;
 import uk.ac.ebi.pride.archive.dataprovider.data.spectra.SummaryArchiveSpectrum;
 import uk.ac.ebi.pride.archive.dataprovider.param.CvParam;
-import uk.ac.ebi.pride.archive.indexer.services.proteomics.MGFPRIDEWriter;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.PIAModelerService;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.PrideJsonRandomAccess;
 import uk.ac.ebi.pride.archive.indexer.utility.BackupUtil;
@@ -68,12 +65,6 @@ public class InferenceService {
         piaModellerInference = new PIAModelerService();
         return piaModellerInference;
     }
-
-//    @Bean
-//    PSMClusteringService getClusterService() {
-//        clusterService = new PSMClusteringService();
-//        return clusterService;
-//    }
 
     public static Map<String, Double> getBestQValue(Map<String, List<Triple<String, Double,String>>> proteins){
         Comparator<Triple<String, Double, String>> comparator = Comparator.comparing(Triple::getSecond);
@@ -271,6 +262,17 @@ public class InferenceService {
         });
         PrideAnalysisAssayService.proteinIndexStep(hashAssay, assayObjects, projectAccession, reanalysisAccession);
         System.out.println(clusterScores.size());
+
+        if(assayObjects != null){
+            for(Object object: assayObjects.values()){
+                if (object instanceof BufferedWriter){
+                    BufferedWriter bufferedWriter = (BufferedWriter) object;
+                    bufferedWriter.flush();
+                    bufferedWriter.close();
+                }
+            }
+        }
+
     }
 
     public void setqValueThreshold(Double qValueThreshold) {
