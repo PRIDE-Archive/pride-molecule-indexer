@@ -157,7 +157,7 @@ public class InferenceService {
         Map<String, Set<String>> proteinPTMs = new HashMap<>();
         Map<String, List<Boolean>> proteinDecoys = new HashMap<>();
 
-        clusteredFilter.values().stream().forEach( psmOptional -> {
+        clusteredFilter.values().forEach(psmOptional -> {
             Triple<String, PeptidoformClustered, Double> psm = psmOptional.get();
             try {
                 BufferedWriter batchBufferWriter = null;

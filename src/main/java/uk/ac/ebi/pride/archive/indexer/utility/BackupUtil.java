@@ -55,14 +55,14 @@ public class BackupUtil {
     }
 
     public static String getArchiveSpectrumFileBatch(String filePrefix, String batch){
-        return filePrefix + "_" + batch + "_" + ArchiveSpectrum.class.getSimpleName() + BJSON_EXT;
+        return filePrefix + "_" + batch + "_" + ArchiveSpectrum.class.getSimpleName() + JSON_EXT;
     }
 
     public static String getArchiveSpectrumFile(String backupPath, String projectAccession, String assayAccession) {
         if (!backupPath.endsWith(File.separator)) {
             backupPath = backupPath + File.separator;
         }
-        return backupPath + projectAccession + File.separator + projectAccession + "_" + assayAccession + "_" +ArchiveSpectrum.class.getSimpleName() + "_Total" + BJSON_EXT;
+        return backupPath + projectAccession + File.separator + projectAccession + "_" + assayAccession + "_" +ArchiveSpectrum.class.getSimpleName() + "_Total" + JSON_EXT;
     }
 
     public static String getArchiveSpectrumFilePrefix(String backupPath, String projectAccession) {
