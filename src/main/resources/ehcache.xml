@@ -3,35 +3,20 @@
         xmlns='http://www.ehcache.org/v3'
         xsi:schemaLocation="http://www.ehcache.org/v3 http://www.ehcache.org/schema/ehcache-core.xsd">
 
+    <persistence directory="${java.io.tmpdir}/.cache"/>
+
     <cache alias="InputSpectra">
         <key-type>java.lang.String</key-type>
         <value-type>java.lang.Long</value-type>
-        <expiry>
-            <ttl unit="seconds">400</ttl>
-        </expiry>
-        <resources>
-            <heap unit="entries">10000</heap>
-        </resources>
+
     </cache>
     <cache alias="Clusters">
         <key-type>java.lang.Integer</key-type>
         <value-type>java.lang.Integer</value-type>
-        <expiry>
-            <ttl unit="seconds">400</ttl>
-        </expiry>
-        <resources>
-            <heap unit="entries">10000</heap>
-        </resources>
     </cache>
     <cache alias="ProteinToPsms">
         <key-type>java.lang.String</key-type>
         <value-type>java.util.List</value-type>
-        <expiry>
-            <ttl unit="seconds">400</ttl>
-        </expiry>
-        <resources>
-            <heap unit="entries">2000</heap>
-        </resources>
     </cache>
 
 </config>
