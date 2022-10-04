@@ -10,6 +10,7 @@ import org.ehcache.config.units.MemoryUnit;
 
 import java.io.File;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
 public class AppCacheManager implements Serializable {
@@ -39,7 +40,7 @@ public class AppCacheManager implements Serializable {
                 .withCache(CLUSTERS_CACHE, CacheConfigurationBuilder
                         .newCacheConfigurationBuilder(Integer.class, Integer.class, spectraResourceBuilder))
                 .withCache(PROTEIN_TO_PSMS_CACHE, CacheConfigurationBuilder
-                        .newCacheConfigurationBuilder(String.class, List.class, proteinsResourceBuilder))
+                        .newCacheConfigurationBuilder(String.class, ArrayList.class, proteinsResourceBuilder))
                 .build();
         cacheManage.init();
 
@@ -63,7 +64,7 @@ public class AppCacheManager implements Serializable {
 
 
     public Cache<String, ? extends List> getProteinToPsmsCache() {
-        return cacheManage.getCache(PROTEIN_TO_PSMS_CACHE, String.class, List.class);
+        return cacheManage.getCache(PROTEIN_TO_PSMS_CACHE, String.class, ArrayList.class);
     }
 
     public static void closeInstance(){

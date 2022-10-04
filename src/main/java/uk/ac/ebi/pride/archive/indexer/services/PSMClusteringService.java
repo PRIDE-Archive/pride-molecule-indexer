@@ -11,9 +11,7 @@ import uk.ac.ebi.pride.archive.indexer.utility.BackupUtil;
 
 import java.io.*;
 import java.nio.file.Files;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 
 @Slf4j
 @Service
