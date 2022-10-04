@@ -9,9 +9,14 @@ import org.ehcache.config.units.EntryUnit;
 import org.ehcache.config.units.MemoryUnit;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.Serializable;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
 public class AppCacheManager implements Serializable {
 
@@ -23,6 +28,8 @@ public class AppCacheManager implements Serializable {
     private static final String CLUSTERS_CACHE = "Clusters";
     private static final String PROTEIN_TO_PSMS_CACHE = "ProteinToPsms";
 
+    private static final long timeStamp;
+
     static {
         ResourcePoolsBuilder spectraResourceBuilder = ResourcePoolsBuilder.newResourcePoolsBuilder()
                 .heap(100000, EntryUnit.ENTRIES)
@@ -33,8 +40,10 @@ public class AppCacheManager implements Serializable {
                 .heap(100000, EntryUnit.ENTRIES)
                 .offheap(300, MemoryUnit.MB);
 
+        timeStamp = UUID.randomUUID().getMostSignificantBits() & Long.MAX_VALUE;
+
         cacheManage = CacheManagerBuilder.newCacheManagerBuilder()
-                .with(CacheManagerBuilder.persistence(System.getProperty("java.io.tmpdir") + File.separator + ".cache"))
+                .with(CacheManagerBuilder.persistence(System.getProperty("user.dir") + File.separator + "." + Long.toString(timeStamp) + ".cache"))
                 .withCache(INPUT_SPECTRA_CACHE, CacheConfigurationBuilder
                         .newCacheConfigurationBuilder(String.class, Long.class, spectraResourceBuilder))
                 .withCache(CLUSTERS_CACHE, CacheConfigurationBuilder
@@ -68,8 +77,22 @@ public class AppCacheManager implements Serializable {
     }
 
     public static void closeInstance(){
-        if(cacheManage != null)
+        if(cacheManage != null){
             cacheManage.close();
+            File cacheFile = new File(System.getProperty("user.dir") + File.separator + "." + Long.toString(timeStamp) + ".cache");
+            if(cacheFile.exists()){
+                try {
+                    Files.walk(cacheFile.toPath())
+                            .sorted(Comparator.reverseOrder())
+                            .map(Path::toFile)
+                            .forEach(File::delete);
+                    cacheFile.deleteOnExit();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+        }
         System.out.println("Cache Closed");
     }
 }
