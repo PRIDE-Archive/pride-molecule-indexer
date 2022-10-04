@@ -24,13 +24,11 @@ public class PrideJsonRandomAccess {
     private final BufferedRandomAccessFile raf;
 
     private final Cache<String, Long> index;
-    private final ObjectMapper objectMapper;
 
     public PrideJsonRandomAccess(String fileAbsolutePath) throws IOException {
         this.raf = new BufferedRandomAccessFile(fileAbsolutePath, "r", 1024 * 100);
         AppCacheManager appCacheManager = AppCacheManager.getInstance();
         this.index = appCacheManager.getPrideJsonSpectra();
-        this.objectMapper = new ObjectMapper();
     }
 
     /**
