@@ -221,7 +221,7 @@ process json_check_validator{
   file("**_ArchiveSpectrum_Total_NonFilter_Validated.json") into final_spectrum_total_validated_json, total_spectrum_file_final
 
   script:
-  java_mem = "-Xmx" + task.memory.toGiga() + "G"
+  java_mem = "-Xmx" + (task.memory.toGiga() - 4) + "G"
   """
   java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar spectra-json-check --app.archive-spectra="${result_id}" --app.validated-spectra="${result_id.baseName}_Validated.json"
   """
@@ -239,7 +239,7 @@ process convert_to_mgf{
   file "*.mgf" into mgf_files
 
   script:
-  java_mem = "-Xmx" + task.memory.toGiga() + "G"
+  java_mem = "-Xmx" + (task.memory.toGiga() - 4) + "G"
   """
   java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar generate-mgf-files --app.archive-spectra="${total_spectra}" --app.mgf-file=${params.project_accession}.mgf
   """

@@ -22,6 +22,7 @@ import uk.ac.ebi.pride.utilities.term.CvTermReference;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static uk.ac.ebi.pride.archive.indexer.services.PrideAnalysisAssayService.createBackupDir;
@@ -150,8 +151,9 @@ public class InferenceService {
         Map<String, List<String>> peptideToProteins = new HashMap<>();
         Map<String, Set<String>> proteinPTMs = new HashMap<>();
         Map<String, List<Boolean>> proteinDecoys = new HashMap<>();
-
+        AtomicInteger psmCount = new AtomicInteger(1);
         clusteredFilter.values().forEach(psmOptional -> {
+            boolean flush = (psmCount.get() % 1000) == 0;
             Triple<String, PeptidoformClustered, Double> psm = psmOptional.get();
             try {
                 BufferedWriter batchBufferWriter = null;
@@ -176,9 +178,9 @@ public class InferenceService {
                         .sampleProperties(archivePSM.getSampleProperties())
                         .build();
                 // Total number of spectrum in ArchiveSpectrum
-                BackupUtil.write(archivePSM, (BufferedWriter) assayObjects.get("archiveSpectrumBufferedWriter"));
+                BackupUtil.write(archivePSM, (BufferedWriter) assayObjects.get("archiveSpectrumBufferedWriter"), flush);
                 // Total number of spectrum in Elastic Search summary.
-                BackupUtil.write(psmElastic, (BufferedWriter) assayObjects.get("psmSummaryEvidenceBufferedWriter"));
+                BackupUtil.write(psmElastic, (BufferedWriter) assayObjects.get("psmSummaryEvidenceBufferedWriter"), flush);
                 // Writing in batches.
 
                 String usi = psm.getFirst();
@@ -190,7 +192,7 @@ public class InferenceService {
                 }else
                     batchBufferWriter = spectraPartitionWriters.get(batchFile);
 
-                BackupUtil.write(archivePSM, batchBufferWriter);
+                BackupUtil.write(archivePSM, batchBufferWriter, flush);
                 // construction of USI list.
                 PeptideSpectrumOverview psmOverview = new PeptideSpectrumOverview(archivePSM.getPrecursorCharge(),
                         archivePSM.getPrecursorMz(), usi , archivePSM.getPeptideSequence(), SubmissionPipelineUtils.removeChargeState(archivePSM.getPeptidoform()));
@@ -239,6 +241,7 @@ public class InferenceService {
                 log.debug("Error writing the PSMs in the files -- " + psm.getFirst());
                 throw new RuntimeException(e);
             }
+            psmCount.getAndIncrement();
         });
 
         assayObjects.put("proteinToPsms", proteinToPsms);
