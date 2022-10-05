@@ -20,7 +20,7 @@ import java.util.UUID;
 
 public class AppCacheManager implements Serializable {
 
-    public final static long serialVersionUID = 1L;
+    public final static long serialVersionUID = -1012032095143052963L;
     private static AppCacheManager instance = null;
     private final static CacheManager cacheManage;
 
