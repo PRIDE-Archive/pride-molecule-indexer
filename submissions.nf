@@ -286,7 +286,7 @@ process final_inference_after_clustering{
     file("**_SummaryArchiveSpectrum.json") optional true into final_summary_json_inference, final_summary_json_view_inference
 
   script:
-  java_mem = "-Xmx" + task.memory.toGiga() + "G"
+  java_mem = "-Xmx" + (task.memory.toGiga() - 4) + "G"
   """
   java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar perform-inference --app.output-folder=`pwd` --app.archive-spectra="${total_spectrum}" --app.cluster-file="${clustering_file}" --app.project-accession="${params.project_accession}"
   """
