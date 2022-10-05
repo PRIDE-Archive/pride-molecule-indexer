@@ -85,13 +85,16 @@ public class PSMClusteringService {
             pridePSMJsonReader.parseIndex();
 
             BufferedWriter bw = new BufferedWriter(new FileWriter(validatedArchiveFile, false));
-
+            int lineInt = 0;
             for (Iterator<Cache.Entry<String, Long>> it = pridePSMJsonReader.getKeys(); it.hasNext(); ) {
                 String usi = it.next().getKey();
                 BinaryArchiveSpectrum spec = pridePSMJsonReader.readArchiveSpectrum(usi);
                 if (spec != null){
                     BackupUtil.write(spec, bw);
                 }
+                if((lineInt % 1000) == 0)
+                    bw.flush();
+                lineInt++;
             }
             bw.flush();
             bw.close();
