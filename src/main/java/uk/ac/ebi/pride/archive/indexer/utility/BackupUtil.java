@@ -24,7 +24,7 @@ public class BackupUtil {
         objectMapper.registerModule(new ParanamerModule());
     }
 
-    public static void writeBinarySpectrum(BinaryArchiveSpectrum spec, BufferedWriter bw) throws IOException {
+    public static void writeBinarySpectrum(BinaryArchiveSpectrum spec, BufferedWriter bw, boolean flush) throws IOException {
         // This step has been added to do not export orginally spectra that can be binary
         try{
             String binaryLine = BinaryArchiveSpectrum.writeJson(spec);
@@ -35,14 +35,15 @@ public class BackupUtil {
             System.err.printf("Spectrum -- %s has an error%n", spec.toString());
         }
         bw.write(BinaryArchiveSpectrum.writeJson(spec));
-
         bw.newLine();
+        if(flush) bw.flush();
     }
 
-    public static void write(Object obj, BufferedWriter bw) throws Exception {
+    public static void write(Object obj, BufferedWriter bw, boolean flush) throws Exception {
         String s = objectMapper.writeValueAsString(obj);
         bw.write(s);
         bw.newLine();
+        if(flush) bw.flush();
     }
 
     public static String getProteinEvidenceFile(String backupPath, String projectAccession, String assayAccession) {

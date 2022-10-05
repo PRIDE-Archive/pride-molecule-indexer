@@ -90,10 +90,10 @@ public class PSMClusteringService {
                 String usi = it.next().getKey();
                 BinaryArchiveSpectrum spec = pridePSMJsonReader.readArchiveSpectrum(usi);
                 if (spec != null){
-                    BackupUtil.write(spec, bw);
+                    boolean flush = (lineInt % 1000) == 0;
+                    BackupUtil.write(spec, bw, flush);
                 }
-                if((lineInt % 1000) == 0)
-                    bw.flush();
+                bw.flush();
                 lineInt++;
             }
             bw.flush();

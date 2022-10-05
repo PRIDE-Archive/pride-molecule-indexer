@@ -531,7 +531,9 @@ public class PrideAnalysisAssayService {
             Map<String, List<Boolean>> proteinDecoys = new HashMap<>();
 
             List<Triple<String, SpectraData, SubmissionPipelineUtils.FileType>> finalRelatedFiles = relatedFiles;
+            AtomicInteger psmCount = new AtomicInteger(1);
             psms.forEach(psm -> {
+                boolean flush = (psmCount.get() % 1000) == 0;
                 BufferedWriter batchBufferWriter = null;
                 try {
                     PeptideSpectrumMatch spectrum = null;
@@ -758,9 +760,9 @@ public class PrideAnalysisAssayService {
                         try {
 
                             // Total number of spectrum in ArchiveSpectrum
-                            BackupUtil.write(archivePSM, (BufferedWriter) assayObjects.get("archiveSpectrumBufferedWriter"));
+                            BackupUtil.write(archivePSM, (BufferedWriter) assayObjects.get("archiveSpectrumBufferedWriter"), flush);
                             // Total number of spectrum in Elastic Search summary.
-                            BackupUtil.write(psmElastic, (BufferedWriter) assayObjects.get("psmSummaryEvidenceBufferedWriter"));
+                            BackupUtil.write(psmElastic, (BufferedWriter) assayObjects.get("psmSummaryEvidenceBufferedWriter"), flush);
                             // Writing in batches.
 
                             String batchFile = usi.split(":")[2];
@@ -771,7 +773,7 @@ public class PrideAnalysisAssayService {
                             }else
                                 batchBufferWriter = spectraPartitionWriters.get(batchFile);
 
-                            BackupUtil.write(archivePSM, batchBufferWriter);
+                            BackupUtil.write(archivePSM, batchBufferWriter, flush);
 
                         } catch (Exception ex) {
                             log.debug("Error writing the PSMs in the files -- " + psmElastic.getUsi());
@@ -829,6 +831,7 @@ public class PrideAnalysisAssayService {
                     if (!(e instanceof JMzReaderException))
                         throw new RuntimeException(e);
                 }
+                psmCount.getAndIncrement();
             });
             assayObjects.put("proteinToPsms", proteinToPsms);
 
@@ -942,7 +945,7 @@ public class PrideAnalysisAssayService {
         Map<String, Double> proteinScores = (Map<String, Double>) assayObjects.get("proteinScores");
         Map<String, String> proteinCategories = (Map<String, String>) assayObjects.get("proteinStatus");
         Map<String, Boolean> decoyStatus = (Map<String, Boolean>) assayObjects.get("proteinDecoys");Map<String, Set<String>> proteinPTMs = (Map<String, Set<String>>) assayObjects.get("proteinPTMs");
-
+        int countProteins = 0;
         for (Iterator<Cache.Entry<String, List<PeptideSpectrumOverview>>> it = proteinsToPsms.iterator(); it.hasNext(); ) {
 
             Cache.Entry<String, List<PeptideSpectrumOverview>> entry = it.next();
@@ -984,12 +987,13 @@ public class PrideAnalysisAssayService {
                     .build();
 
             try {
-                BackupUtil.write(proteinEvidence, (BufferedWriter) assayObjects.get("proteinEvidenceBufferedWriter"));
+                BackupUtil.write(proteinEvidence, (BufferedWriter) assayObjects.get("proteinEvidenceBufferedWriter"), ((countProteins % 1000) == 0));
                 log.info(String.format("Protein %s -- Number of peptides %s", entry.getKey(), nPeptides));
             }catch (Exception e) {
                 log.error(e.getMessage(), e);
                 throw new Exception(e);
             }
+            countProteins++;
         }
 
     }
