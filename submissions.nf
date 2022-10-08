@@ -122,7 +122,7 @@ ch_result_uncompress_process_str.subscribe { println "value: $it" }
 // Get the related spectra for each result file.
 process project_get_related_spectra{
 
-  label 'process_high'
+  label 'process_medium'
 
   publishDir "${params.outdir}/related_files", mode: 'copy', pattern: '*.tsv'
 
@@ -133,9 +133,8 @@ process project_get_related_spectra{
     tuple result_id, file("*.tsv") into ch_spectra_summary
 
   script:
-  java_mem = "-Xmx" + task.memory.toGiga() + "G"
   """
-  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar get-related-files --app.project-accession=${params.project_accession} \
+  java -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar get-related-files --app.project-accession=${params.project_accession} \
        --app.file-output="${params.project_accession}-${result_id}-result_spectra.tsv" --app.result-file="${uncompress_result}"
   """
 }
@@ -199,9 +198,8 @@ process generate_json_index_files{
   file("**_ArchiveSpectrum_Total.json") optional true into final_spectrum_total_json
 
   script:
-  java_mem = "-Xmx" + task.memory.toGiga() + "G"
   """
-  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar generate-index-files --app.result-file="${result_id[1]}" --app.folder-output=`pwd` --app.spectra-files="${result_id[2].join(",")}" --app.project-accession=${params.project_accession} --app.minPSMs=${params.minPSMs} --app.qValueThreshold=${params.qValueThreshold} --app.qFilterProteinFDR=${params.qFilterProteinFDR} --app.peptideLength=${params.peptideLength} --app.uniquePeptides=${params.uniquePeptides}
+  java -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar generate-index-files --app.result-file="${result_id[1]}" --app.folder-output=`pwd` --app.spectra-files="${result_id[2].join(",")}" --app.project-accession=${params.project_accession} --app.minPSMs=${params.minPSMs} --app.qValueThreshold=${params.qValueThreshold} --app.qFilterProteinFDR=${params.qFilterProteinFDR} --app.peptideLength=${params.peptideLength} --app.uniquePeptides=${params.uniquePeptides}
   """
 }
 
@@ -212,6 +210,7 @@ total_spectrum_file = final_spectrum_total_json.collectFile(
 process json_check_validator{
 
   label 'process_high'
+
   publishDir "${params.outdir}/${params.project_accession}", mode: 'copy', pattern: '**.json'
 
   input:
@@ -221,9 +220,8 @@ process json_check_validator{
   file("**_ArchiveSpectrum_Total_NonFilter_Validated.json") into final_spectrum_total_validated_json, total_spectrum_file_final
 
   script:
-  java_mem = "-Xmx" + (task.memory.toGiga() - 4) + "G"
   """
-  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar spectra-json-check --app.archive-spectra="${result_id}" --app.validated-spectra="${result_id.baseName}_Validated.json"
+  java -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar spectra-json-check --app.archive-spectra="${result_id}" --app.validated-spectra="${result_id.baseName}_Validated.json"
   """
 }
 
@@ -239,15 +237,15 @@ process convert_to_mgf{
   file "*.mgf" into mgf_files
 
   script:
-  java_mem = "-Xmx" + (task.memory.toGiga() - 4) + "G"
   """
-  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar generate-mgf-files --app.archive-spectra="${total_spectra}" --app.mgf-file=${params.project_accession}.mgf
+  java -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar generate-mgf-files --app.archive-spectra="${total_spectra}" --app.mgf-file=${params.project_accession}.mgf
   """
 }
 
 process maracluster_clustering{
 
   label 'process_high'
+
   publishDir "${params.outdir}/${params.project_accession}", mode: 'copy', pattern: '**.tsv'
 
   if (workflow.containerEngine == 'singularity' && !params.singularity_pull_docker_container) {
@@ -288,7 +286,7 @@ process final_inference_after_clustering{
   script:
   java_mem = "-Xmx" + (task.memory.toGiga() - 4) + "G"
   """
-  java $java_mem -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar perform-inference --app.output-folder=`pwd` --app.archive-spectra="${total_spectrum}" --app.cluster-file="${clustering_file}" --app.project-accession="${params.project_accession}"
+  java -jar ${baseDir}/bin/pride-molecules-indexer-1.0.0-SNAPSHOT-bin.jar perform-inference --app.output-folder=`pwd` --app.archive-spectra="${total_spectrum}" --app.cluster-file="${clustering_file}" --app.project-accession="${params.project_accession}"
   """
 }
 
