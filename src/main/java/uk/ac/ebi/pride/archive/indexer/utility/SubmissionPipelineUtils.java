@@ -283,7 +283,7 @@ public class SubmissionPipelineUtils {
     }
 
     public static String removeChargeState(String peptidoform){
-        return peptidoform.substring(0, peptidoform.length() - 1);
+        return peptidoform.substring(0, peptidoform.length() - 2);
     }
 
     public static String encodePeptide(String sequence, Map<Integer, Modification> ptms) {

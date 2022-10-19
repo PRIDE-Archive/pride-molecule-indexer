@@ -13,16 +13,13 @@ import uk.ac.ebi.pride.archive.dataprovider.data.spectra.BinaryArchiveSpectrum;
 import uk.ac.ebi.pride.archive.dataprovider.data.spectra.SummaryArchiveSpectrum;
 import uk.ac.ebi.pride.archive.dataprovider.param.CvParam;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.PIAModelerService;
+import uk.ac.ebi.pride.archive.indexer.services.proteomics.PeptidoformClustered;
 import uk.ac.ebi.pride.archive.indexer.services.proteomics.PrideJsonRandomAccess;
-import uk.ac.ebi.pride.archive.indexer.utility.AppCacheManager;
-import uk.ac.ebi.pride.archive.indexer.utility.BackupUtil;
-import uk.ac.ebi.pride.archive.indexer.utility.HashUtils;
-import uk.ac.ebi.pride.archive.indexer.utility.SubmissionPipelineUtils;
+import uk.ac.ebi.pride.archive.indexer.utility.*;
 import uk.ac.ebi.pride.utilities.term.CvTermReference;
 
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static uk.ac.ebi.pride.archive.indexer.services.PrideAnalysisAssayService.createBackupDir;
@@ -30,7 +27,7 @@ import static uk.ac.ebi.pride.archive.indexer.services.PrideAnalysisAssayService
 @Configuration
 @Slf4j
 @Service
-public class InferenceService {
+public class InferenceService implements Serializable{
 
     private PIAModelerService piaModellerInference;
 
@@ -99,7 +96,9 @@ public class InferenceService {
 //            throw new Exception(String.format("The number of spectra in the cluster file (%s) is different than the " +
 //                    "number of spectra in the json file (%s)", clusters.size(), pridePSMJsonReader.getKeys().size()));
 
-        Map<Integer, List<Triple<String, PeptidoformClustered, Double>>> clusterScores = new HashMap<>();
+        Cache<Integer, List<Triple<String, PeptidoformClustered, Double>>> clusterScores = (Cache<Integer, List<Triple<String, PeptidoformClustered, Double>>>) appCacheManager.getPeptidoformCache();
+        Cache<Integer, Triple<String, PeptidoformClustered, Double>> filterScores = (Cache<Integer, Triple<String, PeptidoformClustered, Double>>) appCacheManager.getFilterPeptidoformCache();
+
         int index = 0;
         for (Iterator<Cache.Entry<String, Long>> it = pridePSMJsonReader.getKeys(); it.hasNext(); ) {
             String usi = it.next().getKey();
@@ -114,35 +113,37 @@ public class InferenceService {
             index++;
         }
 
-        Map<Integer, Optional<Triple<String, PeptidoformClustered, Double>>> clusteredFilter = clusterScores.entrySet()
-                .parallelStream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> {
-                    List<Triple<String, PeptidoformClustered, Double>> peptides = e.getValue();
-                    Set<String> isoPeptideSet = peptides.stream().map(pep -> makePeptideIsobaric(pep.getSecond().getSequence())).collect(Collectors.toSet());
-                    if(isoPeptideSet.size() > 1)
-                        return Optional.empty();
+        //Using cache to delete objects.
+        Set<Integer> indexTobeRemoved = new HashSet<>();
+        for (Iterator<Cache.Entry<Integer, List<Triple<String, PeptidoformClustered, Double>>>> it = clusterScores.iterator(); it.hasNext(); ) {
+            Cache.Entry<Integer, List<Triple<String, PeptidoformClustered, Double>>> score = it.next();
 
-                    Map<PeptidoformClustered, Long> isoPeptideForms = peptides.stream().collect(Collectors.groupingBy(Triple::getSecond, Collectors.counting()));
-                    Map<PeptidoformClustered, Long> validPeptideForms = new HashMap<>();
-                    for(Map.Entry entry: isoPeptideForms.entrySet()){
-                        double ratio = Math.round((Long)entry.getValue()/peptides.size() *100)/100;
-                        if(ratio > 0.5)
-                            validPeptideForms.put((PeptidoformClustered) entry.getKey(), (Long) entry.getValue());
-                    }
-                    if (validPeptideForms.size() == 0)
-                            return Optional.empty();
-                    Triple<String, PeptidoformClustered, Double> resultPeptide = null;
-                    for(Triple<String, PeptidoformClustered, Double> peptide: peptides){
-                        if(resultPeptide == null || (peptide.getSecond().equals(resultPeptide.getSecond()) && peptide.getThird() < resultPeptide.getThird()))
-                            resultPeptide = peptide;
-                    }
-                    return resultPeptide!= null ? Optional.of(resultPeptide):Optional.empty();
-                }));
-        clusteredFilter = clusteredFilter.entrySet().stream()
-                .filter(e -> e.getValue().isPresent())
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            List<Triple<String, PeptidoformClustered, Double>> peptides = score.getValue();
+            Set<String> isoPeptideSet = peptides.stream().map(pep -> StringUtils.makePeptideIsobaric(pep.getSecond().getSequence())).collect(Collectors.toSet());
+            if(isoPeptideSet.size() > 1)
+                indexTobeRemoved.add(score.getKey());
 
-        String hashAssay = HashUtils.sha1InObject(clusteredFilter);
+            Map<PeptidoformClustered, Long> isoPeptideForms = peptides.stream().collect(Collectors.groupingBy(Triple::getSecond, Collectors.counting()));
+            Map<PeptidoformClustered, Long> validPeptideForms = new HashMap<>();
+            for(Map.Entry entry: isoPeptideForms.entrySet()){
+                double ratio = Math.round((Long)entry.getValue()/peptides.size() *100)/100;
+                if(ratio > 0.5)
+                    validPeptideForms.put((PeptidoformClustered) entry.getKey(), (Long) entry.getValue());
+            }
+
+            if (validPeptideForms.size() == 0)
+                    indexTobeRemoved.add(score.getKey());
+
+            Triple<String, PeptidoformClustered, Double> resultPeptide = null;
+            for(Triple<String, PeptidoformClustered, Double> peptide: peptides){
+                if(resultPeptide == null || (peptide.getSecond().equals(resultPeptide.getSecond()) && peptide.getThird() < resultPeptide.getThird()))
+                    resultPeptide = peptide;
+            }
+            if(resultPeptide != null)
+                filterScores.put(score.getKey(), resultPeptide);
+        }
+
+        String hashAssay = HashUtils.getRandomToken();
         Map<String, Object> assayObjects = new HashMap<>();
         createBackupFiles(assayObjects, folderOutput, projectAccession, hashAssay);
 
@@ -151,10 +152,11 @@ public class InferenceService {
         Map<String, List<String>> peptideToProteins = new HashMap<>();
         Map<String, Set<String>> proteinPTMs = new HashMap<>();
         Map<String, List<Boolean>> proteinDecoys = new HashMap<>();
-        AtomicInteger psmCount = new AtomicInteger(1);
-        clusteredFilter.values().forEach(psmOptional -> {
-            boolean flush = (psmCount.get() % 1000) == 0;
-            Triple<String, PeptidoformClustered, Double> psm = psmOptional.get();
+        int psmCount = 1;
+
+        for (Iterator<Cache.Entry<Integer, Triple<String, PeptidoformClustered, Double>>> it = filterScores.iterator(); it.hasNext(); ) {
+            boolean flush = (psmCount % 1000) == 0;
+            Triple<String, PeptidoformClustered, Double> psm = it.next().getValue();
             try {
                 BufferedWriter batchBufferWriter = null;
                 BinaryArchiveSpectrum archivePSM = pridePSMJsonReader.readArchiveSpectrum(psm.getFirst());
@@ -241,8 +243,8 @@ public class InferenceService {
                 log.debug("Error writing the PSMs in the files -- " + psm.getFirst());
                 throw new RuntimeException(e);
             }
-            psmCount.getAndIncrement();
-        });
+            psmCount++;
+        };
 
         assayObjects.put("proteinToPsms", proteinToPsms);
         Map<String, Double> proteinScores = InferenceService.getBestQValue(proteinsPSMsScores);
@@ -267,7 +269,6 @@ public class InferenceService {
             }
         });
         PrideAnalysisAssayService.proteinIndexStep(hashAssay, assayObjects, projectAccession, reanalysisAccession);
-        System.out.println(clusterScores.size());
 
         for(Object object: assayObjects.values()){
             if (object instanceof BufferedWriter){
@@ -289,51 +290,6 @@ public class InferenceService {
 
     public void setPeptideLength(Double peptideLength) {
         this.peptideLength = peptideLength;
-    }
-
-    private static String makePeptideIsobaric(String peptide){
-        return peptide.replace("L", "I");
-    }
-
-
-    private class PeptidoformClustered {
-        private final String sequence;
-        String peptidoform;
-        Boolean isDecoy;
-
-        public PeptidoformClustered(String sequence, String peptidoform, boolean isDecoy) {
-            this.sequence = sequence;
-            this.peptidoform = peptidoform;
-            this.isDecoy = isDecoy;
-        }
-
-        public Boolean getDecoy() {
-            return isDecoy;
-        }
-
-        public String getSequence() {
-            return sequence;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            String oPep = makePeptideIsobaric(((PeptidoformClustered) o).peptidoform);
-            String isopep = makePeptideIsobaric(peptidoform);
-            if (isopep.equals(oPep)) return true;
-            PeptidoformClustered that = (PeptidoformClustered) o;
-            return peptidoform.equals(that.peptidoform);
-        }
-
-        @Override
-        public int hashCode() {
-            String isopep = makePeptideIsobaric(peptidoform);
-            return Objects.hash(isopep);
-        }
-
-        @Override
-        public String toString() {
-            return peptidoform;
-        }
     }
 
     private Map<String, Object> createBackupFiles(Map<String, Object> assayObjects, String folderOutput, String projectAccession, String assayAccession) throws IOException {

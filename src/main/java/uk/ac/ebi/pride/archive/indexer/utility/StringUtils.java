@@ -35,4 +35,8 @@ public class StringUtils {
         return org.apache.commons.lang3.StringUtils.capitalize(sentence);
     }
 
+    public static String makePeptideIsobaric(String peptide){
+        return peptide.replace("L", "I");
+    }
+
 }

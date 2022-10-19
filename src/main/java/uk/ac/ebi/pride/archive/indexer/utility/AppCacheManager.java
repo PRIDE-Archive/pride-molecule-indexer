@@ -7,6 +7,8 @@ import org.ehcache.config.builders.CacheManagerBuilder;
 import org.ehcache.config.builders.ResourcePoolsBuilder;
 import org.ehcache.config.units.EntryUnit;
 import org.ehcache.config.units.MemoryUnit;
+import uk.ac.ebi.pride.archive.dataprovider.common.Triple;
+import uk.ac.ebi.pride.archive.indexer.services.InferenceService;
 
 import java.io.File;
 import java.io.IOException;
@@ -21,6 +23,8 @@ import java.util.UUID;
 public class AppCacheManager implements Serializable {
 
     public final static long serialVersionUID = -1012032095143052963L;
+    private static final String PEPTIDOFORM_CACHE = "PeptidoformCache";
+    private static final String FILTER_PEPTIDOFORM_CACHE = "FiterPeptidoformCache";
     private static AppCacheManager instance = null;
     private final static CacheManager cacheManage;
 
@@ -50,6 +54,10 @@ public class AppCacheManager implements Serializable {
                         .newCacheConfigurationBuilder(Integer.class, Integer.class, spectraResourceBuilder))
                 .withCache(PROTEIN_TO_PSMS_CACHE, CacheConfigurationBuilder
                         .newCacheConfigurationBuilder(String.class, ArrayList.class, proteinsResourceBuilder))
+                .withCache(PEPTIDOFORM_CACHE, CacheConfigurationBuilder
+                        .newCacheConfigurationBuilder(Integer.class, ArrayList.class, spectraResourceBuilder))
+                .withCache(FILTER_PEPTIDOFORM_CACHE, CacheConfigurationBuilder
+                        .newCacheConfigurationBuilder(Integer.class, Triple.class, spectraResourceBuilder))
                 .build();
         cacheManage.init();
 
@@ -94,5 +102,13 @@ public class AppCacheManager implements Serializable {
 
         }
         System.out.println("Cache Closed");
+    }
+
+    public Cache<Integer, ? extends List> getPeptidoformCache() {
+        return cacheManage.getCache(PEPTIDOFORM_CACHE, Integer.class, ArrayList.class);
+    }
+
+    public Cache<Integer, ? extends Triple> getFilterPeptidoformCache() {
+        return cacheManage.getCache(FILTER_PEPTIDOFORM_CACHE, Integer.class, Triple.class);
     }
 }
