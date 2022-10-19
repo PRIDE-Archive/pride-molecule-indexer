@@ -160,85 +160,88 @@ public class InferenceService implements Serializable{
             try {
                 BufferedWriter batchBufferWriter = null;
                 BinaryArchiveSpectrum archivePSM = pridePSMJsonReader.readArchiveSpectrum(psm.getFirst());
-                SummaryArchiveSpectrum psmElastic = SummaryArchiveSpectrum
-                        .builder()
-                        .usi(archivePSM.getUsi())
-                        .spectraUsi(archivePSM.getSpectraUsi())
-                        .peptideSequence(archivePSM.getPeptideSequence())
-                        .assayAccession(archivePSM.getAssayAccession())
-                        .isDecoy(archivePSM.getIsDecoy())
-                        .precursorCharge(archivePSM.getPrecursorCharge())
-                        .isValid(archivePSM.getIsValid())
-                        .projectAccession(archivePSM.getProjectAccession())
-                        .reanalysisAccession(archivePSM.getReanalysisAccession())
-                        .scores(archivePSM.getScores())
-                        .numPeaks(archivePSM.getNumPeaks())
-                        .bestSearchEngineScore(archivePSM.getBestSearchEngineScore())
-                        .precursorMz(archivePSM.getPrecursorMz())
-                        .proteinAccessions(archivePSM.getProteinAccessions())
-                        .peptidoform(archivePSM.getPeptidoform())
-                        .sampleProperties(archivePSM.getSampleProperties())
-                        .build();
-                // Total number of spectrum in ArchiveSpectrum
-                BackupUtil.write(archivePSM, (BufferedWriter) assayObjects.get("archiveSpectrumBufferedWriter"), flush);
-                // Total number of spectrum in Elastic Search summary.
-                BackupUtil.write(psmElastic, (BufferedWriter) assayObjects.get("psmSummaryEvidenceBufferedWriter"), flush);
-                // Writing in batches.
+                if(archivePSM != null){
+                    SummaryArchiveSpectrum psmElastic = SummaryArchiveSpectrum
+                            .builder()
+                            .usi(archivePSM.getUsi())
+                            .spectraUsi(archivePSM.getSpectraUsi())
+                            .peptideSequence(archivePSM.getPeptideSequence())
+                            .assayAccession(archivePSM.getAssayAccession())
+                            .isDecoy(archivePSM.getIsDecoy())
+                            .precursorCharge(archivePSM.getPrecursorCharge())
+                            .isValid(archivePSM.getIsValid())
+                            .projectAccession(archivePSM.getProjectAccession())
+                            .reanalysisAccession(archivePSM.getReanalysisAccession())
+                            .scores(archivePSM.getScores())
+                            .numPeaks(archivePSM.getNumPeaks())
+                            .bestSearchEngineScore(archivePSM.getBestSearchEngineScore())
+                            .precursorMz(archivePSM.getPrecursorMz())
+                            .proteinAccessions(archivePSM.getProteinAccessions())
+                            .peptidoform(archivePSM.getPeptidoform())
+                            .sampleProperties(archivePSM.getSampleProperties())
+                            .build();
+                    // Total number of spectrum in ArchiveSpectrum
+                    BackupUtil.write(archivePSM, (BufferedWriter) assayObjects.get("archiveSpectrumBufferedWriter"), flush);
+                    // Total number of spectrum in Elastic Search summary.
+                    BackupUtil.write(psmElastic, (BufferedWriter) assayObjects.get("psmSummaryEvidenceBufferedWriter"), flush);
+                    // Writing in batches.
 
-                String usi = psm.getFirst();
-                String batchFile = usi.split(":")[2];
-                if(!spectraPartitionWriters.containsKey(batchFile)){
+                    String usi = psm.getFirst();
+                    String batchFile = usi.split(":")[2];
+                    if(!spectraPartitionWriters.containsKey(batchFile)){
                         String prefix = (String) assayObjects.get("archiveSpectrumFilePrefix");
                         batchBufferWriter = new BufferedWriter(new FileWriter(BackupUtil.getArchiveSpectrumFileBatch(prefix, batchFile), false));
                         spectraPartitionWriters.put(batchFile, batchBufferWriter);
-                }else
-                    batchBufferWriter = spectraPartitionWriters.get(batchFile);
+                    }else
+                        batchBufferWriter = spectraPartitionWriters.get(batchFile);
 
-                BackupUtil.write(archivePSM, batchBufferWriter, flush);
-                // construction of USI list.
-                PeptideSpectrumOverview psmOverview = new PeptideSpectrumOverview(archivePSM.getPrecursorCharge(),
-                        archivePSM.getPrecursorMz(), usi , archivePSM.getPeptideSequence(), SubmissionPipelineUtils.removeChargeState(archivePSM.getPeptidoform()));
+                    BackupUtil.write(archivePSM, batchBufferWriter, flush);
+                    // construction of USI list.
+                    PeptideSpectrumOverview psmOverview = new PeptideSpectrumOverview(archivePSM.getPrecursorCharge(),
+                            archivePSM.getPrecursorMz(), usi , archivePSM.getPeptideSequence(), SubmissionPipelineUtils.removeChargeState(archivePSM.getPeptidoform()));
 
-                archivePSM.getProteinAccessions().forEach( x -> {
-                    // For some reason for protein accessions for PSMs are not in any of the protein reported proteins.
-                    List<PeptideSpectrumOverview> usis = new ArrayList<>();
-                    if(proteinToPsms.containsKey(x)){
-                        usis = proteinToPsms.get(x);
-                    }
-                    usis.add(psmOverview);
-                    proteinToPsms.put(x, usis);
+                    archivePSM.getProteinAccessions().forEach( x -> {
+                        // For some reason for protein accessions for PSMs are not in any of the protein reported proteins.
+                        List<PeptideSpectrumOverview> usis = new ArrayList<>();
+                        if(proteinToPsms.containsKey(x)){
+                            usis = proteinToPsms.get(x);
+                        }
+                        usis.add(psmOverview);
+                        proteinToPsms.put(x, usis);
 
-                    //Get the protein Score
-                    List<uk.ac.ebi.pride.archive.dataprovider.common.Triple<String, Double,String>> pcms = new ArrayList<>();
-                    Double pcmScore = Double.valueOf(archivePSM.getBestSearchEngineScore().getValue());
+                        //Get the protein Score
+                        List<uk.ac.ebi.pride.archive.dataprovider.common.Triple<String, Double,String>> pcms = new ArrayList<>();
+                        Double pcmScore = Double.valueOf(archivePSM.getBestSearchEngineScore().getValue());
 
-                    if(proteinsPSMsScores.containsKey(x)){
-                        pcms = proteinsPSMsScores.get(x);
-                    }
-                    pcms.add(new uk.ac.ebi.pride.archive.dataprovider.common.Triple<>(archivePSM.getPeptidoform(), pcmScore, archivePSM.getUsi()));
-                    proteinsPSMsScores.put(x, pcms);
+                        if(proteinsPSMsScores.containsKey(x)){
+                            pcms = proteinsPSMsScores.get(x);
+                        }
+                        pcms.add(new uk.ac.ebi.pride.archive.dataprovider.common.Triple<>(archivePSM.getPeptidoform(), pcmScore, archivePSM.getUsi()));
+                        proteinsPSMsScores.put(x, pcms);
 
-                    // Get protein uniqueness
-                    List<String> proteinIds = new ArrayList<>();
-                    if(peptideToProteins.containsKey(archivePSM.getPeptidoform()))
-                        proteinIds = peptideToProteins.get(archivePSM.getPeptidoform());
-                    proteinIds.add(x);
-                    peptideToProteins.put(archivePSM.getPeptidoform(),proteinIds);
+                        // Get protein uniqueness
+                        List<String> proteinIds = new ArrayList<>();
+                        if(peptideToProteins.containsKey(archivePSM.getPeptidoform()))
+                            proteinIds = peptideToProteins.get(archivePSM.getPeptidoform());
+                        proteinIds.add(x);
+                        peptideToProteins.put(archivePSM.getPeptidoform(),proteinIds);
 
-                    // Get protein decoys
-                    List<Boolean> decoys = new ArrayList<>();
-                    if(proteinDecoys.containsKey(x))
-                        decoys = proteinDecoys.get(x);
-                    decoys.add(archivePSM.getIsDecoy());
-                    proteinDecoys.put(x, decoys);
+                        // Get protein decoys
+                        List<Boolean> decoys = new ArrayList<>();
+                        if(proteinDecoys.containsKey(x))
+                            decoys = proteinDecoys.get(x);
+                        decoys.add(archivePSM.getIsDecoy());
+                        proteinDecoys.put(x, decoys);
 
-                    Set<String> ptms = new HashSet<>();
-                    if(proteinPTMs.containsKey(x))
-                        ptms = proteinPTMs.get(x);
-                    ptms.addAll(archivePSM.getModifications().stream().map(m -> m.getModification().getName()).collect(Collectors.toList()));
-                    proteinPTMs.put(x, ptms);
-
-                });
+                        Set<String> ptms = new HashSet<>();
+                        if(proteinPTMs.containsKey(x))
+                            ptms = proteinPTMs.get(x);
+                        ptms.addAll(archivePSM.getModifications().stream().map(m -> m.getModification().getName()).collect(Collectors.toList()));
+                        proteinPTMs.put(x, ptms);
+                    });
+                } else {
+                    System.out.println("USI with error -- " + psm.getFirst());
+                }
             } catch (Exception e) {
                 log.debug("Error writing the PSMs in the files -- " + psm.getFirst());
                 throw new RuntimeException(e);
@@ -277,7 +280,6 @@ public class InferenceService implements Serializable{
                 bufferedWriter.close();
             }
         }
-
     }
 
     public void setqValueThreshold(Double qValueThreshold) {
