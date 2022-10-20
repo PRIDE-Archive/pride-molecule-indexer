@@ -46,7 +46,7 @@ public class InferenceService implements Serializable{
     @Autowired
     private PSMClusteringService clusterService;
 
-    static final Map<String, BufferedWriter> spectraPartitionWriters = new HashMap<>();
+    static final Map<String, PrintWriter> spectraPartitionWriters = new HashMap<>();
 
     public static Map<String, String> getInferenceCategories(Map<String, List<String>> peptideToProteins, Set<String> proteins) {
         Collection<List<String>> values = peptideToProteins.values();
@@ -158,10 +158,9 @@ public class InferenceService implements Serializable{
             boolean flush = (psmCount % 1000) == 0;
             Triple<String, PeptidoformClustered, Double> psm = it.next().getValue();
             try {
-                BufferedWriter batchBufferWriter = null;
+                PrintWriter batchBufferWriter = null;
                 BinaryArchiveSpectrum archivePSM = pridePSMJsonReader.readArchiveSpectrum(psm.getFirst());
-                if(archivePSM != null){
-                    SummaryArchiveSpectrum psmElastic = SummaryArchiveSpectrum
+                SummaryArchiveSpectrum psmElastic = SummaryArchiveSpectrum
                             .builder()
                             .usi(archivePSM.getUsi())
                             .spectraUsi(archivePSM.getSpectraUsi())
@@ -181,16 +180,16 @@ public class InferenceService implements Serializable{
                             .sampleProperties(archivePSM.getSampleProperties())
                             .build();
                     // Total number of spectrum in ArchiveSpectrum
-                    BackupUtil.write(archivePSM, (BufferedWriter) assayObjects.get("archiveSpectrumBufferedWriter"), flush);
+                    BackupUtil.write(archivePSM, (PrintWriter) assayObjects.get("archiveSpectrumPrintWriter"), flush);
                     // Total number of spectrum in Elastic Search summary.
-                    BackupUtil.write(psmElastic, (BufferedWriter) assayObjects.get("psmSummaryEvidenceBufferedWriter"), flush);
+                    BackupUtil.write(psmElastic, (PrintWriter) assayObjects.get("psmSummaryEvidencePrintWriter"), flush);
                     // Writing in batches.
 
                     String usi = psm.getFirst();
                     String batchFile = usi.split(":")[2];
                     if(!spectraPartitionWriters.containsKey(batchFile)){
                         String prefix = (String) assayObjects.get("archiveSpectrumFilePrefix");
-                        batchBufferWriter = new BufferedWriter(new FileWriter(BackupUtil.getArchiveSpectrumFileBatch(prefix, batchFile), false));
+                        batchBufferWriter = new PrintWriter(new FileWriter(BackupUtil.getArchiveSpectrumFileBatch(prefix, batchFile), false));
                         spectraPartitionWriters.put(batchFile, batchBufferWriter);
                     }else
                         batchBufferWriter = spectraPartitionWriters.get(batchFile);
@@ -239,9 +238,9 @@ public class InferenceService implements Serializable{
                         ptms.addAll(archivePSM.getModifications().stream().map(m -> m.getModification().getName()).collect(Collectors.toList()));
                         proteinPTMs.put(x, ptms);
                     });
-                } else {
-                    System.out.println("USI with error -- " + psm.getFirst());
-                }
+//                } else {
+//                    System.out.println("USI with error -- " + psm.getFirst());
+//                }
             } catch (Exception e) {
                 log.debug("Error writing the PSMs in the files -- " + psm.getFirst());
                 throw new RuntimeException(e);
@@ -264,20 +263,16 @@ public class InferenceService implements Serializable{
 
         assayObjects.put("validationMethods", validationMethods);
         spectraPartitionWriters.values().forEach(x -> {
-            try {
-                x.flush();
-                x.close();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+            x.flush();
+            x.close();
         });
         PrideAnalysisAssayService.proteinIndexStep(hashAssay, assayObjects, projectAccession, reanalysisAccession);
 
         for(Object object: assayObjects.values()){
-            if (object instanceof BufferedWriter){
-                BufferedWriter bufferedWriter = (BufferedWriter) object;
-                bufferedWriter.flush();
-                bufferedWriter.close();
+            if (object instanceof PrintWriter){
+                PrintWriter PrintWriter = (PrintWriter) object;
+                PrintWriter.flush();
+                PrintWriter.close();
             }
         }
     }
@@ -303,18 +298,18 @@ public class InferenceService implements Serializable{
 
         final String proteinEvidenceFileName = BackupUtil.getProteinEvidenceFile(folderOutput, projectAccession, assayAccession);
         assayObjects.put("proteinEvidenceFileName", proteinEvidenceFileName);
-        assayObjects.put("proteinEvidenceBufferedWriter", new BufferedWriter(new FileWriter(proteinEvidenceFileName, false)));
+        assayObjects.put("proteinEvidencePrintWriter", new PrintWriter(new FileWriter(proteinEvidenceFileName, false)));
 
         final String archiveSpectrumFileName = BackupUtil.getArchiveSpectrumFile(folderOutput, projectAccession, assayAccession);
         assayObjects.put("archiveSpectrumFileName", archiveSpectrumFileName);
-        assayObjects.put("archiveSpectrumBufferedWriter", new BufferedWriter(new FileWriter(archiveSpectrumFileName, false)));
+        assayObjects.put("archiveSpectrumPrintWriter", new PrintWriter(new FileWriter(archiveSpectrumFileName, false)));
 
         final String archiveSpectrumFilePrefix = BackupUtil.getArchiveSpectrumFilePrefix(folderOutput, projectAccession);
         assayObjects.put("archiveSpectrumFilePrefix", archiveSpectrumFilePrefix);
 
         final String psmSummaryEvidenceFileName = BackupUtil.getPsmSummaryEvidenceFile(folderOutput, projectAccession, assayAccession);
         assayObjects.put("psmSummaryEvidenceFileName", psmSummaryEvidenceFileName);
-        assayObjects.put("psmSummaryEvidenceBufferedWriter", new BufferedWriter(new FileWriter(psmSummaryEvidenceFileName, false)));
+        assayObjects.put("psmSummaryEvidencePrintWriter", new PrintWriter(new FileWriter(psmSummaryEvidenceFileName, false)));
 
         return assayObjects;
 

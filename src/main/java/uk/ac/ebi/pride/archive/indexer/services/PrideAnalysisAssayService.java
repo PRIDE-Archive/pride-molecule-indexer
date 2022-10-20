@@ -98,7 +98,7 @@ public class PrideAnalysisAssayService {
 
     static final OboMapper efoOboMapper = OboMapper.getEFOOboMapper(false);
 
-    static final Map<String, BufferedWriter> spectraPartitionWriters = new HashMap<>();
+    static final Map<String, PrintWriter> spectraPartitionWriters = new HashMap<>();
 
     @Bean
     PIAModelerService getPIAModellerService() {
@@ -158,8 +158,7 @@ public class PrideAnalysisAssayService {
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
 
             String date = simpleDateFormat.format(projectOption.get().getPublicationDate());
-            try (PrintWriter writer = new PrintWriter(
-                    Files.newBufferedWriter(Paths.get(outputFile)))) {
+            try (PrintWriter writer = new PrintWriter(new FileWriter(outputFile))) {
                 writer.printf("%s\t%s\t%s\t%s\t%s\t%s", "resultFile", "date", "referenceFile", "fileType", "ftpName", "ftp");
                 writer.println();
                 filesRelated.forEach(x -> {
@@ -210,7 +209,7 @@ public class PrideAnalysisAssayService {
      * @param assayObjects AssayObjects to store the protein/peptide/psms information
      * @param folderOutput Root folder containing all the backup files
      * @param projectAccession Project assay
-     * @return Object Map updated with the {@link BufferedWriter}s for each object
+     * @return Object Map updated with the {@link PrintWriter}s for each object
      * @throws IOException
      */
     private Map<String, Object> createBackupFiles(Map<String, Object> assayObjects, String folderOutput, String projectAccession, String assayAccession) throws IOException {
@@ -223,18 +222,18 @@ public class PrideAnalysisAssayService {
 
         final String proteinEvidenceFileName = BackupUtil.getProteinEvidenceFile(folderOutput, projectAccession, assayAccession);
         assayObjects.put("proteinEvidenceFileName", proteinEvidenceFileName);
-        assayObjects.put("proteinEvidenceBufferedWriter", new BufferedWriter(new FileWriter(proteinEvidenceFileName, false)));
+        assayObjects.put("proteinEvidencePrintWriter", new PrintWriter(new FileWriter(proteinEvidenceFileName, false)));
 
         final String archiveSpectrumFileName = BackupUtil.getArchiveSpectrumFile(folderOutput, projectAccession, assayAccession);
         assayObjects.put("archiveSpectrumFileName", archiveSpectrumFileName);
-        assayObjects.put("archiveSpectrumBufferedWriter", new BufferedWriter(new FileWriter(archiveSpectrumFileName, false)));
+        assayObjects.put("archiveSpectrumPrintWriter", new PrintWriter(new FileWriter(archiveSpectrumFileName, false)));
 
         final String archiveSpectrumFilePrefix = BackupUtil.getArchiveSpectrumFilePrefix(folderOutput, projectAccession);
         assayObjects.put("archiveSpectrumFilePrefix", archiveSpectrumFilePrefix);
 
         final String psmSummaryEvidenceFileName = BackupUtil.getPsmSummaryEvidenceFile(folderOutput, projectAccession, assayAccession);
         assayObjects.put("psmSummaryEvidenceFileName", psmSummaryEvidenceFileName);
-        assayObjects.put("psmSummaryEvidenceBufferedWriter", new BufferedWriter(new FileWriter(psmSummaryEvidenceFileName, false)));
+        assayObjects.put("psmSummaryEvidencePrintWriter", new PrintWriter(new FileWriter(psmSummaryEvidenceFileName, false)));
 
         return assayObjects;
 
@@ -295,10 +294,10 @@ public class PrideAnalysisAssayService {
         }
         if(assayObjectMap != null){
             for(Object object: assayObjectMap.values()){
-                if (object instanceof BufferedWriter){
-                    BufferedWriter bufferedWriter = (BufferedWriter) object;
-                    bufferedWriter.flush();
-                    bufferedWriter.close();
+                if (object instanceof PrintWriter){
+                    PrintWriter PrintWriter = (PrintWriter) object;
+                    PrintWriter.flush();
+                    PrintWriter.close();
                 }
             }
         }
@@ -393,10 +392,10 @@ public class PrideAnalysisAssayService {
      * @throws IOException
      */
     private void closeBackupFiles(Map<String, Object> assayObjects) throws IOException {
-        for(String bufferName: Arrays.asList("proteinEvidenceBufferedWriter", "archiveSpectrumBufferedWriter","psmSummaryEvidenceBufferedWriter")){
-            BufferedWriter bufferedWriter = (BufferedWriter) assayObjects.get(bufferName);
-            bufferedWriter.flush();
-            bufferedWriter.close();
+        for(String bufferName: Arrays.asList("proteinEvidencePrintWriter", "archiveSpectrumPrintWriter","psmSummaryEvidencePrintWriter")){
+            PrintWriter PrintWriter = (PrintWriter) assayObjects.get(bufferName);
+            PrintWriter.flush();
+            PrintWriter.close();
         }
     }
 
@@ -534,7 +533,7 @@ public class PrideAnalysisAssayService {
             AtomicInteger psmCount = new AtomicInteger(1);
             psms.forEach(psm -> {
                 boolean flush = (psmCount.get() % 1000) == 0;
-                BufferedWriter batchBufferWriter = null;
+                PrintWriter batchBufferWriter = null;
                 try {
                     PeptideSpectrumMatch spectrum = null;
                     if (psm != null) spectrum = psm.getSpectrum();
@@ -760,15 +759,15 @@ public class PrideAnalysisAssayService {
                         try {
 
                             // Total number of spectrum in ArchiveSpectrum
-                            BackupUtil.write(archivePSM, (BufferedWriter) assayObjects.get("archiveSpectrumBufferedWriter"), flush);
+                            BackupUtil.write(archivePSM, (PrintWriter) assayObjects.get("archiveSpectrumPrintWriter"), flush);
                             // Total number of spectrum in Elastic Search summary.
-                            BackupUtil.write(psmElastic, (BufferedWriter) assayObjects.get("psmSummaryEvidenceBufferedWriter"), flush);
+                            BackupUtil.write(psmElastic, (PrintWriter) assayObjects.get("psmSummaryEvidencePrintWriter"), flush);
                             // Writing in batches.
 
                             String batchFile = usi.split(":")[2];
                             if(!spectraPartitionWriters.containsKey(batchFile)){
                                 String prefix = (String) assayObjects.get("archiveSpectrumFilePrefix");
-                                batchBufferWriter = new BufferedWriter(new FileWriter(BackupUtil.getArchiveSpectrumFileBatch(prefix, batchFile), false));
+                                batchBufferWriter = new PrintWriter(new FileWriter(BackupUtil.getArchiveSpectrumFileBatch(prefix, batchFile), false));
                                 spectraPartitionWriters.put(batchFile, batchBufferWriter);
                             }else
                                 batchBufferWriter = spectraPartitionWriters.get(batchFile);
@@ -848,12 +847,8 @@ public class PrideAnalysisAssayService {
             assayObjects.put("proteinPTMs", proteinPTMs);
 
             spectraPartitionWriters.values().forEach(x -> {
-                try {
-                    x.flush();
-                    x.close();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+                x.flush();
+                x.close();
             });
 
             log.info("Delta Mass Rate -- " + (errorDeltaPSM.get() / totalPSM.get()));
@@ -987,7 +982,7 @@ public class PrideAnalysisAssayService {
                     .build();
 
             try {
-                BackupUtil.write(proteinEvidence, (BufferedWriter) assayObjects.get("proteinEvidenceBufferedWriter"), ((countProteins % 1000) == 0));
+                BackupUtil.write(proteinEvidence, (PrintWriter) assayObjects.get("proteinEvidencePrintWriter"), ((countProteins % 1000) == 0));
                 log.info(String.format("Protein %s -- Number of peptides %s", entry.getKey(), nPeptides));
             }catch (Exception e) {
                 log.error(e.getMessage(), e);
