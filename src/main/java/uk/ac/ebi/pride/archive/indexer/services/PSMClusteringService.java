@@ -84,7 +84,7 @@ public class PSMClusteringService {
             PrideJsonRandomAccess pridePSMJsonReader = new PrideJsonRandomAccess(spectraArchiveFile);
             pridePSMJsonReader.parseIndex();
 
-            BufferedWriter bw = new BufferedWriter(new FileWriter(validatedArchiveFile, false));
+            PrintWriter bw = new PrintWriter(new FileWriter(validatedArchiveFile, false));
             int lineInt = 0;
             for (Iterator<Cache.Entry<String, Long>> it = pridePSMJsonReader.getKeys(); it.hasNext(); ) {
                 String usi = it.next().getKey();

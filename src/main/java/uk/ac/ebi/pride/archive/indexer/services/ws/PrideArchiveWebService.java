@@ -9,6 +9,7 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import uk.ac.ebi.pride.archive.dataprovider.param.CvParamProvider;
 
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.URI;
@@ -109,8 +110,7 @@ public class PrideArchiveWebService {
 
                 String date = simpleDateFormat.format(projectOption.get().getPublicationDate());
                 List<PrideFile> files = findFilesByProjectAccession(projectAccession, true);
-                try (PrintWriter writer = new PrintWriter(
-                        Files.newBufferedWriter(Paths.get(fileOutput)))) {
+                try (PrintWriter writer = new PrintWriter(new FileWriter(fileOutput))) {
                     writer.printf("%s\t%s\t%s\t%s", "name", "date", "accession", "ftp");
                     writer.println();
                     files.forEach(x -> {
