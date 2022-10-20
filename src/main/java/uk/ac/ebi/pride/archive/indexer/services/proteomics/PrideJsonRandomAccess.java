@@ -1,15 +1,12 @@
 package uk.ac.ebi.pride.archive.indexer.services.proteomics;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.ehcache.Cache;
 import uk.ac.ebi.pride.archive.dataprovider.data.spectra.ArchiveSpectrum;
 import uk.ac.ebi.pride.archive.dataprovider.data.spectra.BinaryArchiveSpectrum;
 import uk.ac.ebi.pride.archive.indexer.utility.AppCacheManager;
-import uk.ac.ebi.pride.tools.braf.BufferedRandomAccessFile;
 
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.util.Iterator;
 
 /**
@@ -22,12 +19,12 @@ import java.util.Iterator;
 @Slf4j
 public class PrideJsonRandomAccess {
 
-    private final RandomAccessFile raf;
+    private final BufferedRandomAccessFile raf;
 
     private final Cache<String, Long> index;
 
     public PrideJsonRandomAccess(String fileAbsolutePath) throws IOException {
-        this.raf = new RandomAccessFile(fileAbsolutePath, "r");
+        this.raf = new BufferedRandomAccessFile(fileAbsolutePath, "r", 1024 * 100);
         AppCacheManager appCacheManager = AppCacheManager.getInstance();
         this.index = appCacheManager.getPrideJsonSpectra();
     }
