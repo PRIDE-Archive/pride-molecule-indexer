@@ -9,6 +9,7 @@ import uk.ac.ebi.pride.archive.indexer.utility.AppCacheManager;
 import uk.ac.ebi.pride.tools.braf.BufferedRandomAccessFile;
 
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.util.Iterator;
 
 /**
@@ -21,12 +22,12 @@ import java.util.Iterator;
 @Slf4j
 public class PrideJsonRandomAccess {
 
-    private final BufferedRandomAccessFile raf;
+    private final RandomAccessFile raf;
 
     private final Cache<String, Long> index;
 
     public PrideJsonRandomAccess(String fileAbsolutePath) throws IOException {
-        this.raf = new BufferedRandomAccessFile(fileAbsolutePath, "r", 1024 * 100);
+        this.raf = new RandomAccessFile(fileAbsolutePath, "r");
         AppCacheManager appCacheManager = AppCacheManager.getInstance();
         this.index = appCacheManager.getPrideJsonSpectra();
     }
@@ -43,7 +44,7 @@ public class PrideJsonRandomAccess {
         String line;
         long pos = raf.getFilePointer();
 
-        while( (line = raf.getNextLine()) != null){
+        while( (line = raf.readLine()) != null){
             try {
                 BinaryArchiveSpectrum spectrum = BinaryArchiveSpectrum.readJson(line);
                 index.put(spectrum.getUsi(), pos);
