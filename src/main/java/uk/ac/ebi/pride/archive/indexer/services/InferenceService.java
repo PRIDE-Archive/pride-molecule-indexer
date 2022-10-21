@@ -21,6 +21,7 @@ import uk.ac.ebi.pride.utilities.term.CvTermReference;
 import java.io.*;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static uk.ac.ebi.pride.archive.indexer.services.PrideAnalysisAssayService.createBackupDir;
 
@@ -266,6 +267,10 @@ public class InferenceService implements Serializable{
             x.flush();
             x.close();
         });
+
+        StreamSupport.stream(
+                        Spliterators.spliteratorUnknownSize(proteinToPsms.iterator(), Spliterator.ORDERED), false)
+                .forEach( x-> System.out.println("Proteins -- " + x.getKey() + " number of PSMs -- " + x.getValue().size() ));
         PrideAnalysisAssayService.proteinIndexStep(hashAssay, assayObjects, projectAccession, reanalysisAccession);
 
         for(Object object: assayObjects.values()){
