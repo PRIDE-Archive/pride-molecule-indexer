@@ -112,7 +112,7 @@ process uncompress_result_files{
 
    script:
    """
-   wget '${result_file_path}'
+   wget --tries=80 '${result_file_path}'
    gunzip -f '${result_id}'
    """
 }
@@ -171,7 +171,7 @@ process download_spectra_files{
 
   script:
   """
-  wget ${spectra.flatten().join(" ")}
+  wget --tries=80 ${spectra.flatten().join(" ")}
   find . -type f -name '*.gz' -exec gzip -d {} \\;
   """
 }
