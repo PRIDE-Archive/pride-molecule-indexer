@@ -39,20 +39,6 @@ public class MGFPRIDEWriter implements Serializable {
         }
     }
 
-//    public void appendProperties(ISpectrum spectrum, Appendable out) {
-//        final Properties properties = spectrum.getProperties();
-//        try {
-//            for (String s : properties.stringPropertyNames()) {
-//                final String property = properties.getProperty(s);
-//                final String line = KnownProperties.toMGFLine(s, property);
-//                out.append(line);
-//                out.append("\n");
-//            }
-//        } catch (IOException e) {
-//            throw new UnsupportedOperationException(e);
-//        }
-//    }
-
     /**
      * override to add peptide later
      *

@@ -30,8 +30,9 @@ public class PSMClusteringService {
             for (Iterator<Cache.Entry<String, Long>> it = pridePSMJsonReader.getKeys(); it.hasNext(); ) {
                 String usi = it.next().getKey();
                 BinaryArchiveSpectrum spec = pridePSMJsonReader.readArchiveSpectrum(usi);
-                if (spec != null)
+                if (spec != null && isValidSpectrum(spec)){
                     MGFPRIDEWriter.appendSpectrum(outputStreamWriter, spec);
+                }
             }
             outputStreamWriter.flush();
             outputStreamWriter.close();
@@ -39,6 +40,14 @@ public class PSMClusteringService {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private boolean isValidSpectrum(BinaryArchiveSpectrum spec) {
+        if(spec.getIntensities().length == 0 || spec.getMasses().length == 0 || (spec.getIntensities().length != spec.getMasses().length))
+            return false;
+        if(spec.getPrecursorCharge() == null || spec.getPrecursorMz() == null)
+            return false;
+        return spec.getUsi() != null && spec.getPeptidoform() != null;
     }
 
     /**
