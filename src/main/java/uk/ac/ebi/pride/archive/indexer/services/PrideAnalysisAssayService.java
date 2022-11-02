@@ -566,6 +566,7 @@ public class PrideAnalysisAssayService {
                     if(reanalysisAccession != null)
                        reanalysisUsi = SubmissionPipelineUtils.buildUsi(reanalysisAccession, fileName, psm, spectrumID.getSecond(), spectrumID.getThird(), SubmissionPipelineUtils.isValidWiffId(spectrumID.getSecond()));
 
+                    usi = SubmissionPipelineUtils.cleanUsiFromSpecialCharacters(usi);
                     spectraUsi = SubmissionPipelineUtils.getSpectraUsiFromUsi(usi);
                     if(reanalysisUsi != null)
                         usi = reanalysisUsi;

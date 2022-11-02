@@ -40,6 +40,19 @@ public class SubmissionPipelineUtils {
         return resultFile.endsWith(Compress_Type.GZIP.extension) || resultFile.endsWith(Compress_Type.ZIP.extension);
     }
 
+    public static String cleanUsiFromSpecialCharacters(String usi) {
+        usi = usi.replace(" (", "-")
+                .replace(") ", "-")
+                .replace("_(", "-")
+                .replace(")_", "-")
+                .replace("(", "-")
+                .replace(")", "-")
+                .replace(" _", "-")
+                .replace("_ ", "-")
+                .replace(" ", "-");
+        return usi;
+    }
+
     /**
      * Supported id format used in the spectrum file.
      */

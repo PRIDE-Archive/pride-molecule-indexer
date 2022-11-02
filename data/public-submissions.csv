@@ -1,42 +1,42 @@
 project_accession, # PSMS, species, status,# mzids
-PXD021914,2231913,human,done,180
-PXD022377,1636064,Rhodotorula toruloides,done,66
-PXD003613,1529740,human,done,96
-PXD005768,1394473,mouse,done,42
-PXD011427,1293048,Vibrio cyclitrophicus 1f53,done,62
-PXD021233,1185478,mouse,done,192
-PXD010431,905628,Aspergillus niger,done,52
-PXD006920,774800,mouse,done,78
-PXD023354,726546,human,done,72
-PXD010515,718949,Trichodesmium erythraeum ims101,done,72
-PXD010142,713338,human,done,96
+PXD021914,379699,human,done,180
+PXD022377,418876,Rhodotorula toruloides,done,66
+PXD003613,800790,human,done,96
+PXD005768,563469,mouse,done,42
+PXD011427,280719,Vibrio cyclitrophicus 1f53,done,62
+PXD021233,538581,mouse,done,192
+PXD010431,339652,Aspergillus niger,done,52
+PXD006920,260458,mouse,done,78
+PXD023354,223800,human,done,72
+PXD010515,348458,Trichodesmium erythraeum ims101,done,72
+PXD010142,168882,human,done,96
 PXD010150,680455,human,done,58
-PXD006442,661305,human,done,69
-PXD010610,644843,mouse,done,60
-PXD004312,611840,human,done,80
-PXD003672,563256,Pelagibacter ubique,done,98
-PXD005701,480989,Pisum sativum (garden pea),done,1
-PXD002317,436252,Caenorhabditis elegans,done,56
+PXD006442,104141,human,done,69
+PXD010610,326512,mouse,done,60
+PXD004312,302094,human,done,80
+PXD003672,346968,Pelagibacter ubique,done,98
+PXD005701,21958,Pisum sativum (garden pea),done,1
+PXD002317,152035,Caenorhabditis elegans,done,56
 PXD026461,421616,mouse,done,16
-PXD001924,371185,Burkholderia cenocepacia h111,done,40
-PXD011160,214002,meta-proteomics,done,36
-PXD012491,178649,Bradyrhizobium diazoefficiens,done,6
-PXD011199,32469,mouse,done,67
-PXD000521,,Arabidopsis thaliana (mouse-ear cress),,1
-PXD000565,,Arabidopsis thaliana (mouse-ear cress),,1
-PXD000566,,Arabidopsis thaliana (mouse-ear cress),,1
-PXD000567,,Arabidopsis thaliana (mouse-ear cress),,1
-PXD000568,,Arabidopsis thaliana (mouse-ear cress),,1
-PXD000894,,Schizosaccharomyces pombe 927,,1
-PXD000908,,Arabidopsis thaliana (mouse-ear cress),,1
-PXD000923,,Rice(o. sativa),,1
-PXD000941,,Arabidopsis thaliana (mouse-ear cress),,1
-PXD000942,,Arabidopsis thaliana (mouse-ear cress),,1
-PXD001012,,human,,1
-PXD001013,,human,,1
-PXD001014,,human,,1
-PXD001015,,human,,1
-PXD001016,,human,,1
+PXD001924,274076,Burkholderia cenocepacia h111,done,40
+PXD011160,29228,meta-proteomics,done,36
+PXD012491,123204,Bradyrhizobium diazoefficiens,done,6
+PXD011199,3889,mouse,done,67
+PXD000521,0,Arabidopsis thaliana (mouse-ear cress),error,1
+PXD000565,0,Arabidopsis thaliana (mouse-ear cress),error,1
+PXD000566,0,Arabidopsis thaliana (mouse-ear cress),error,1
+PXD000567,0,Arabidopsis thaliana (mouse-ear cress),error,1
+PXD000568,0,Arabidopsis thaliana (mouse-ear cress),error,1
+PXD000894,0,Schizosaccharomyces pombe 927,error,1
+PXD000908,0,Arabidopsis thaliana (mouse-ear cress),error,1
+PXD000923,0,Rice(o. sativa),error,1
+PXD000941,0,Arabidopsis thaliana (mouse-ear cress),error,1
+PXD000942,0,Arabidopsis thaliana (mouse-ear cress),error,1
+PXD001012,0,human,error,1
+PXD001013,0,human,error,1
+PXD001014,0,human,error,1
+PXD001015,0,human,error,1
+PXD001016,0,human,error,1
 PXD001045,,Biofilm metagenome,,1
 PXD001073,,Russula atropurpurea,,1
 PXD001077,,Pyrococcus furiosus,,1
@@ -819,8 +819,8 @@ PXD030609,,,,2
 PXD030665,,,,2
 PXD029648,,,,2
 PXD027182,,,,2
-PXD028825,,,,2
-PXD029825,,,,2
+PXD028825,,human,,2
+PXD029825,0,Rattus norvegicus (rat),error,2
 PXD000498,,,,3
 PXD000921,,,,3
 PXD000933,,,,3
@@ -1972,7 +1972,7 @@ PXD024840,,,,15
 PXD026584,,,,15
 PXD033486,,,,15
 PXD033494,,,,15
-PXD032303,,,,15
+PXD032303,,Human gut metagenome,,15
 PXD032808,,,,15
 PXD036264,,human,,15
 PXD001974,,,,16
@@ -2072,7 +2072,7 @@ PXD005009,,,,18
 PXD005507,,,,18
 PXD005834,,,,18
 PXD006123,,,,18
-PXD006158,,,,18
+PXD006158,2351,mouse,done,18
 PXD006169,,,,18
 PXD006205,,,,18
 PXD006311,,,,18
@@ -2276,7 +2276,7 @@ PXD020235,,,,23
 PXD025233,,,,23
 PXD027040,,,,23
 PXD030859,,,,23
-PXD000966,,,deleted,24
+PXD000966,,,error,24
 PXD001183,,,,24
 PXD001311,,,,24
 PXD001323,,,,24
@@ -2472,7 +2472,7 @@ PXD023572,,,,30
 PXD024201,,,,30
 PXD025848,,,,30
 PXD032203,,,,30
-PXD032297,,,,30
+PXD032297,,human,,30
 PXD031046,,,,30
 PXD028846,,,,30
 PXD028783,,,,30
@@ -2493,7 +2493,7 @@ PXD012755,,,,32
 PXD021498,,,,32
 PXD022720,,,,32
 PXD023273,,,,32
-PXD025400,,Schizosaccharomyces pombe 927, deleted,32
+PXD025400,,Schizosaccharomyces pombe 927,error,32
 PXD000181,,,,32
 PXD004647,,,,32
 PXD011671,,,,32
@@ -2532,7 +2532,7 @@ PXD001683,,,,36
 PXD001951,,,,36
 PXD003023,,,,36
 PXD004083,,,,36
-PXD005179,,Arabidopsis thaliana, deleted,36
+PXD005179,,Arabidopsis thaliana,error,36
 PXD005579,,,,36
 PXD006036,,,,36
 PXD006095,,,,36
@@ -2607,7 +2607,7 @@ PXD012465,,,,40
 PXD022244,,,,40
 PXD022915,,,,40
 PXD023381,,,,40
-PXD025629,,multi-species, deleted,40
+PXD025629,,multi-species,error,40
 PXD000039,,,,40
 PXD004710,,,,40
 PXD008407,,,,40
@@ -2763,7 +2763,7 @@ PXD001403,,,,54
 PXD002365,,,,54
 PXD002511,,,,54
 PXD002593,,,,54
-PXD002901,,,delted,54
+PXD002901,,,error,54
 PXD004025,,,,54
 PXD004171,,,,54
 PXD005359,,,,54
@@ -2872,7 +2872,7 @@ PXD006413,,,,71
 PXD000980,,,,72
 PXD001521,,,,72
 PXD001997,,,,72
-PXD003656,,mouse, deleted,72
+PXD003656,,mouse,error,72
 PXD005687,,,,72
 PXD005844,,,,72
 PXD007153,,,,72
@@ -2929,7 +2929,7 @@ PXD008076,,,,77
 PXD029039,,,,77
 PXD033413,,,,77
 PXD002841,,,,78
-PXD011159,,mouse,deleted,78
+PXD011159,,mouse,error,78
 PXD012501,,,,78
 PXD012987,,,,78
 PXD020617,,,,78
@@ -3277,25 +3277,25 @@ PXD022694,,,,440
 PXD014648,,,,441
 PXD001386,,,,442
 PXD017596,,,,468
-PXD015883,,,,471
+PXD015883,,Chlamydia trachomatis serovar l2 (strain 434/bu / atcc vr-902b),,471
 PXD015890,,,,471
-PXD012200,,,,483
-PXD019643,,,,483
-PXD003267,,,,486
-PXD016002,,,,504
-PXD002078,,"",,513
-PXD001212,,,,516
-PXD012752,,,,528
-PXD005520,,,,540
-PXD019911,,,,540
-PXD016705,,,,549
-PXD007588,,,,552
-PXD000320,,,,560
-PXD015727,,,,573
-PXD004682,,,,576
-PXD017271,,,,576
-PXD001199,,,,600
-PXD008675,,,,641
+PXD012200,,Odontotaenius disjunctus,,483
+PXD019643,0,human,error,483
+PXD003267,,Manduca sexta (tobacco hawkmoth) (tobacco hornworm),,486
+PXD016002,70903,human,done,504
+PXD002078,,Arion vulgaris,,513
+PXD001212,0,mouse,error,516
+PXD012752,,Vipera ammodytes ammodytes,,528
+PXD005520,2378,human,,540
+PXD019911,,Unclassified bacteria,,540
+PXD016705,132184,human,,549
+PXD007588,,Mycobacterium tuberculosis h37rv,,552
+PXD000320,,Shewanella oneidensis (strain mr-1),,560
+PXD015727,,mouse,,573
+PXD004682,178555,human,done,576
+PXD017271,,mouse,,576
+PXD001199,,Pseudomonas aeruginosa pao1,,600
+PXD008675,,Environmental samples,,641
 PXD009614,,Staphylococcus aureus,,648
 PXD008267,,human,,657
 PXD016669,,Escherichia coli,,710
@@ -3305,19 +3305,19 @@ PXD000323,,Shewanella oneidensis (strain mr-1),,771
 PXD012179,,human,,774
 PXD009852,,Schmidtea mediterranea (freshwater planarian flatworm),,777
 PXD011042,,multi-species,,780
-PXD015943,,human,,846
-PXD009350,,human,,954
-PXD006537,,human,,982
+PXD015943,0,human,error,846
+PXD009350,0,human,error,954
+PXD006537,0,human,error,982
 PXD000324,,Shewanella oneidensis (strain mr-1),,987
 PXD000321,,Shewanella oneidensis (strain mr-1),,993
 PXD009649,,Schizosaccharomyces pombe,,1309
 PXD001640,,Escherichia coli str. k-12 substr. mg1655,,1320
-PXD001945,,human,,1425
+PXD001945,0,human,error,1425
 PXD011924,,Salvelinus namaycush,,1432
-PXD008895,,Environmental samples,,1724
-PXD010429,,human,,2088
+PXD008895,0,Environmental samples,error,1724
+PXD010429,494081,human,done,2088
 PXD006247,,Escherichia coli (strain k12 / w3110 / atcc 27325 / dsm 5911),,2782
-PXD009489,,Mycobacterium tuberculosis,,3321
+PXD009489,0,Mycobacterium tuberculosis,error,3321
 PXD003269,,,,
 PXD003292,,,,
 PXD003326,,,,
