@@ -93,10 +93,6 @@ public class InferenceService implements Serializable{
         //The index of the spectrum in the reader is the same (0-based) than the key in the cluster map
         Cache<Integer, Integer> clusters = clusterService.readMaraClusterResults(maraclusterResultsPath);
 
-//        if(clusters.size() != pridePSMJsonReader.getKeys().size())
-//            throw new Exception(String.format("The number of spectra in the cluster file (%s) is different than the " +
-//                    "number of spectra in the json file (%s)", clusters.size(), pridePSMJsonReader.getKeys().size()));
-
         Cache<Integer, List<Triple<String, PeptidoformClustered, Double>>> clusterScores = (Cache<Integer, List<Triple<String, PeptidoformClustered, Double>>>) appCacheManager.getPeptidoformCache();
         Cache<Integer, Triple<String, PeptidoformClustered, Double>> filterScores = (Cache<Integer, Triple<String, PeptidoformClustered, Double>>) appCacheManager.getFilterPeptidoformCache();
 
