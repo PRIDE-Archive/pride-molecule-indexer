@@ -1396,9 +1396,9 @@ PXD015409,,,,6
 PXD017462,,,,6
 PXD016019,,,,6
 PXD017592,,,,6
-PXD015673,,,,6
-PXD017122,,,,6
-PXD015635,,,,6
+PXD015673,1760,human,done,6
+PXD017122,0,Pseudomonas aeruginosa,error,6
+PXD015635,1260,"human,mouse",done,6
 PXD017585,,,,6
 PXD017720,,,,6
 PXD016456,,,,6
@@ -2447,8 +2447,8 @@ PXD002523,,,,30
 PXD006352,,,,30
 PXD011156,,,,30
 PXD011817,,,,30
-PXD026513,,,,30
-PXD002905,,,,30
+PXD026513,0,Desulfovibrio ferrophilus,done,30
+PXD002905,0,mouse,done,30
 PXD003201,,,,30
 PXD004033,,,,30
 PXD006898,,,,30
@@ -3278,7 +3278,7 @@ PXD014648,,,,441
 PXD001386,,,,442
 PXD017596,,,,468
 PXD015883,,Chlamydia trachomatis serovar l2 (strain 434/bu / atcc vr-902b),,471
-PXD015890,,,,471
+PXD015890,,human,,471
 PXD012200,,Odontotaenius disjunctus,,483
 PXD019643,0,human,error,483
 PXD003267,,Manduca sexta (tobacco hawkmoth) (tobacco hornworm),,486
@@ -3315,7 +3315,7 @@ PXD001640,,Escherichia coli str. k-12 substr. mg1655,,1320
 PXD001945,0,human,error,1425
 PXD011924,,Salvelinus namaycush,,1432
 PXD008895,0,Environmental samples,error,1724
-PXD010429,494081,human,done,2088
+PXD010429,494079,human,done,2088
 PXD006247,,Escherichia coli (strain k12 / w3110 / atcc 27325 / dsm 5911),,2782
 PXD009489,0,Mycobacterium tuberculosis,error,3321
 PXD003269,,,,
