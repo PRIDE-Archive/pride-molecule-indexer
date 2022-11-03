@@ -1,6 +1,6 @@
 reanalysis_accession, project_accession, provider, tags, # PSMS, status
-PRD000900, PXD000966, internal, identification|itraq, 152274, done
-PRD000901, PXD000923, external, identification|phosphoproteomics|ptmexchange, 15996, done
+PRD000900, PXD000966, internal, identification|itraq, 152274,done
+PRD000901, PXD000923, external, identification|phosphoproteomics|ptmexchange, 15996,done
 PRD000902, PXD002222, external, identification|phosphoproteomics|ptmexchange, 40562,done
 PRD000903, PXD002756, external, identification|phosphoproteomics|ptmexchange, 68646,done
 PRD000904, PXD004705, external, identification|phosphoproteomics|ptmexchange, 72527,done
