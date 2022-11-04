@@ -41,15 +41,28 @@ public class SubmissionPipelineUtils {
     }
 
     public static String cleanUsiFromSpecialCharacters(String usi) {
-        usi = usi.replace(" (", "-")
-                .replace(") ", "-")
-                .replace("_(", "-")
-                .replace(")_", "-")
-                .replace("(", "-")
-                .replace(")", "-")
-                .replace(" _", "-")
-                .replace("_ ", "-")
-                .replace(" ", "-");
+        usi = usi.replace("(", "")
+                .replace(")", "")
+                .replace("_", "")
+                .replace(" ", "")
+                .replace("=","")
+                .replace("&", "")
+                .replace("$", "")
+                .replace("@", "")
+                .replace(";", "")
+                .replace("+", "")
+                .replace("?", "")
+                .replace("{", "")
+                .replace("^", "")
+                .replace("}", "")
+                .replace("%", "")
+                .replace("]", "")
+                .replace(">", "")
+                .replace("[", "")
+                .replace("~", "")
+                .replace("<", "")
+                .replace("#", "")
+                .replace("|", "");
         return usi;
     }
 
